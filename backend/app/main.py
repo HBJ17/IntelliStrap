@@ -2,11 +2,16 @@ import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from . import db
 from .api import dashboard, device
+from .config import BACKEND_DIR
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+
+STATIC_DIR = BACKEND_DIR / "static"
 
 
 def create_app(*, init_database: bool = True) -> FastAPI:
@@ -20,6 +25,12 @@ def create_app(*, init_database: bool = True) -> FastAPI:
     app.include_router(device.router)
     app.include_router(dashboard.public)
     app.include_router(dashboard.router)
+    app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+    @app.get("/", include_in_schema=False)
+    def index():
+        return FileResponse(STATIC_DIR / "index.html")
+
     return app
 
 

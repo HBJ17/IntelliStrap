@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SmartBand Pantry Monitor</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <div id="login" class="hidden">
+    <form class="card" id="login-form">
+      <h2>SmartBand Pantry Monitor</h2>
+      <label for="login-password">Dashboard password</label>
+      <input id="login-password" type="password" autocomplete="current-password" required>
+      <div class="row" style="margin-top:12px"><button class="primary" type="submit">Sign in</button></div>
+      <p class="muted" id="login-error"></p>
+    </form>
+  </div>
+
+  <header>
+    <h1>SmartBand <span>Pantry Monitor</span></h1>
+    <nav id="nav">
+      <a href="#straps" data-view="straps">Straps</a>
+      <a href="#claim" data-view="claim">Claim a strap</a>
+      <a href="#history" data-view="history">History</a>
+      <a href="#settings" data-view="settings">Settings</a>
+    </nav>
+    <button class="small" id="logout">Sign out</button>
+  </header>
+
+  <main>
+    <section id="view-straps" data-view="straps">
+      <h2>Straps</h2>
+      <div class="grid" id="strap-grid"></div>
+    </section>
+
+    <section id="view-claim" data-view="claim" class="hidden">
+      <h2>Claim a strap</h2>
+      <form class="card" id="claim-form" style="max-width:420px">
+        <p class="muted">A new strap prints a 6-character claim code on its serial log (and sticker) on first boot.</p>
+        <label for="claim-code">Claim code</label>
+        <input id="claim-code" maxlength="6" required autocapitalize="characters" style="text-transform:uppercase">
+        <label for="claim-name">Jar name</label>
+        <input id="claim-name" maxlength="80" required placeholder="e.g. Rice jar">
+        <label for="claim-item">Contents</label>
+        <select id="claim-item"></select>
+        <div class="row" style="margin-top:12px"><button class="primary" type="submit">Claim strap</button></div>
+      </form>
+    </section>
+
+    <section id="view-history" data-view="history" class="hidden">
+      <h2>History</h2>
+      <div class="card">
+        <div class="row">
+          <label for="history-strap" style="margin:0">Strap</label>
+          <select id="history-strap"></select>
+        </div>
+        <ul class="timeline" id="history-list" style="margin-top:10px"></ul>
+      </div>
+    </section>
+
+    <section id="view-settings" data-view="settings" class="hidden">
+      <h2>Settings</h2>
+      <form class="card" id="settings-form">
+        <h3>Owner</h3>
+        <div class="form-grid">
+          <div><label for="s-owner-name">Name</label><input id="s-owner-name" maxlength="80"></div>
+          <div><label for="s-owner-wa">WhatsApp number</label><input id="s-owner-wa" placeholder="+91XXXXXXXXXX"></div>
+          <div><label for="s-threshold">List threshold (₹)</label><input id="s-threshold" type="number" min="1"></div>
+        </div>
+        <h3 style="margin-top:16px">Shop</h3>
+        <div class="form-grid">
+          <div><label for="s-shop-name">Shop name</label><input id="s-shop-name" maxlength="80"></div>
+          <div><label for="s-shop-wa">Shop WhatsApp number</label><input id="s-shop-wa" placeholder="+91XXXXXXXXXX"></div>
+          <div><label for="s-shop-opt">Shopkeeper opted in</label>
+            <select id="s-shop-opt"><option value="false">No</option><option value="true">Yes</option></select></div>
+        </div>
+        <h3 style="margin-top:16px">Timings</h3>
+        <div class="form-grid" id="s-global"></div>
+        <div class="row" style="margin-top:14px"><button class="primary" type="submit">Save settings</button>
+          <span class="muted" id="s-mode"></span></div>
+      </form>
+
+      <div class="card">
+        <h3>Catalog and prices</h3>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Item</th><th>Unit</th><th>Pack</th><th>Price (₹)</th><th></th></tr></thead>
+            <tbody id="catalog-body"></tbody>
+            <tfoot>
+              <tr>
+                <td><input id="new-item-name" placeholder="New item"></td>
+                <td><input id="new-item-unit" placeholder="kg"></td>
+                <td><input id="new-item-pack" placeholder="1 kg"></td>
+                <td><input id="new-item-price" type="number" min="0" placeholder="price"></td>
+                <td><button class="small primary" id="new-item-add">Add</button></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast" role="status"></div>
+  <script src="/static/app.js"></script>
+</body>
+</html>
