@@ -174,7 +174,7 @@ def create_order(db: Session, owner: Owner, rows: list[ListItem], now: datetime,
     return order
 
 
-def _record_sids(order: Order, role: str, sids: list[str]) -> None:
+def record_sids(order: Order, role: str, sids: list[str]) -> None:
     order.twilio_message_ids = [*(order.twilio_message_ids or []), *({"role": role, "sid": s} for s in sids)]
 
 
@@ -209,7 +209,7 @@ def deliver_owner_list(db: Session, order: Order, now: datetime, messenger: Mess
     order.status = OrderStatus.awaiting_owner
     order.owner_sent_at = now
     order.last_error = None
-    _record_sids(order, "owner", sids)
+    record_sids(order, "owner", sids)
     db.flush()
     return True
 
@@ -231,7 +231,7 @@ def send_to_shop(db: Session, order: Order, now: datetime, messenger: Messenger 
             order.status = OrderStatus.sent_to_shop
             order.sent_to_shop_at = now
             order.last_error = None
-            _record_sids(order, "shop", sids)
+            record_sids(order, "shop", sids)
             db.flush()
             safe_text(messenger, order.owner.whatsapp_number, f"Sent to {shop.name}.")
             return True
@@ -249,7 +249,7 @@ def return_rows_to_pending(order: Order) -> None:
             row.order = None
 
 
-def _claim_order(db: Session, order: Order, new_status: OrderStatus, allowed: tuple[OrderStatus, ...]) -> bool:
+def claim_order(db: Session, order: Order, new_status: OrderStatus, allowed: tuple[OrderStatus, ...]) -> bool:
     """Atomic status transition: only one caller can move an order out of `allowed`."""
     result = db.execute(update(Order).where(Order.id == order.id, Order.status.in_(allowed))
                         .values(status=new_status).execution_options(synchronize_session=False))
@@ -280,7 +280,7 @@ def handle_reply(db: Session, reply: ParsedReply, now: datetime, messenger: Mess
             return "no_open_order"
 
     target = OrderStatus.confirmed if reply.action == "order" else OrderStatus.cancelled
-    if not _claim_order(db, order, target, (OrderStatus.awaiting_owner,)):
+    if not claim_order(db, order, target, (OrderStatus.awaiting_owner,)):
         safe_text(messenger, order.owner.whatsapp_number,
                   f"Order #{order.id} was already handled ({order.status.value.replace('_', ' ')}).")
         return "already_handled"
@@ -299,13 +299,13 @@ def retry_order(db: Session, order: Order, now: datetime, messenger: Messenger |
         raise RuleError("only unsent orders can be retried")
     if order.owner_sent_at is None:
         return deliver_owner_list(db, order, now, messenger)
-    if not _claim_order(db, order, OrderStatus.confirmed, (OrderStatus.send_failed,)):
+    if not claim_order(db, order, OrderStatus.confirmed, (OrderStatus.send_failed,)):
         raise RuleError("order was already handled")
     return send_to_shop(db, order, now, messenger)
 
 
 def cancel_order(db: Session, order: Order) -> None:
-    if not _claim_order(db, order, OrderStatus.cancelled, (OrderStatus.awaiting_owner, OrderStatus.send_failed)):
+    if not claim_order(db, order, OrderStatus.cancelled, (OrderStatus.awaiting_owner, OrderStatus.send_failed)):
         raise RuleError("only open or unsent orders can be cancelled")
     return_rows_to_pending(order)
     db.flush()

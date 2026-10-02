@@ -6,7 +6,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import db, scheduler
-from .api import dashboard, device, sim
+from .api import dashboard, device, sim, webhooks
 from .config import BACKEND_DIR, get_settings
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -29,6 +29,7 @@ def create_app(*, init_database: bool = True) -> FastAPI:
     app.include_router(dashboard.public)
     app.include_router(dashboard.router)
     app.include_router(sim.router)
+    app.include_router(webhooks.router)
     app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
     @app.get("/", include_in_schema=False)

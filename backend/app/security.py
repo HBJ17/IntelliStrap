@@ -4,6 +4,7 @@ import secrets
 
 from fastapi import Depends, Header, HTTPException, Request, status
 from itsdangerous import BadSignature, URLSafeTimedSerializer
+from twilio.request_validator import RequestValidator
 from sqlalchemy.orm import Session
 
 from .config import get_settings
@@ -75,3 +76,17 @@ def session_valid(token: str | None) -> bool:
 def require_dashboard(request: Request) -> None:
     if not session_valid(request.cookies.get(SESSION_COOKIE)):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "login required")
+
+
+# --- Twilio webhook signature ----------------------------------------------------
+
+def twilio_signature_valid(request: Request, form: dict[str, str]) -> bool:
+    """X-Twilio-Signature over PUBLIC_BASE_URL + path (+ query), as Twilio saw the URL."""
+    settings = get_settings()
+    signature = request.headers.get("X-Twilio-Signature", "")
+    if not settings.twilio_auth_token or not signature:
+        return False
+    url = settings.public_base_url.rstrip("/") + request.url.path
+    if request.url.query:
+        url += "?" + request.url.query
+    return RequestValidator(settings.twilio_auth_token).validate(url, form, signature)

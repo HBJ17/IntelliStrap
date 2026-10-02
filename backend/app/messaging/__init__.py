@@ -12,6 +12,12 @@ def _build(mode: str) -> Messenger:
     if mode == "simulator":
         from .simulator import SimulatorMessenger
         return SimulatorMessenger()
+    if mode == "twilio_sandbox":
+        from .twilio_sandbox import TwilioSandboxMessenger
+        return TwilioSandboxMessenger(get_settings())
+    if mode == "twilio_production":
+        from .twilio_production import TwilioProductionMessenger
+        return TwilioProductionMessenger(get_settings())
     raise ValueError(f"unknown MESSAGING_MODE {mode!r}")
 
 

@@ -3,14 +3,14 @@ import logging
 from datetime import datetime, timedelta
 
 from apscheduler.schedulers.background import BackgroundScheduler
-from sqlalchemy import delete
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from . import clock, rules, settings_store
 from .config import get_settings
 from .db import session_scope
-from .messaging import Messenger
-from .models import Event, EventType
+from .messaging import Messenger, MessagingError, get_messenger
+from .models import Event, EventType, Order, OrderStatus
 
 log = logging.getLogger(__name__)
 
@@ -24,10 +24,38 @@ def prune_events(db: Session, now: datetime) -> int:
     return result.rowcount or 0
 
 
+def order_reminders_and_expiry(db: Session, now: datetime, messenger: Messenger | None = None) -> None:
+    """R11: one reminder after reminder_hours, expiry after expiry_days (rows go back to pending)."""
+    messenger = messenger or get_messenger()
+    remind_after = timedelta(hours=settings_store.get_int(db, "reminder_hours"))
+    expire_after = timedelta(days=settings_store.get_int(db, "expiry_days"))
+    waiting = db.scalars(select(Order).where(Order.status == OrderStatus.awaiting_owner)).all()
+    for order in waiting:
+        sent_at = order.owner_sent_at or order.created_at
+        if now - sent_at >= expire_after:
+            if rules.claim_order(db, order, OrderStatus.expired, (OrderStatus.awaiting_owner,)):
+                rules.return_rows_to_pending(order)
+                db.flush()
+                rules.safe_text(messenger, order.owner.whatsapp_number,
+                                f"Your pantry list (order #{order.id}) expired without a reply. "
+                                "The items stay on your list.")
+        elif order.reminder_sent_at is None and now - sent_at >= remind_after:
+            # The reminder re-sends the list itself (an approved template in production).
+            try:
+                sids = messenger.send_owner_list(order)
+            except MessagingError as exc:
+                log.warning("reminder for order %s failed: %s", order.id, exc)
+                continue
+            order.reminder_sent_at = now
+            rules.record_sids(order, "reminder", sids)
+            db.flush()
+
+
 def run_frequent(now: datetime | None = None, messenger: Messenger | None = None) -> None:
     now = now or clock.now()
     with session_scope() as db:
         rules.evaluate_holds(db, now, messenger)
+        order_reminders_and_expiry(db, now, messenger)
 
 
 def run_daily(now: datetime | None = None) -> None:
