@@ -172,6 +172,32 @@ def recalibrate(device_id: str, db: Session = Depends(get_db)):
     return {"ok": True, "pending_command": strap.pending_command}
 
 
+@router.get("/events/recent")
+def recent_events(limit: int = 20, db: Session = Depends(get_db)):
+    """Latest state changes and recalibrations across the owner's straps (dashboard live stream)."""
+    owner = rules.get_owner(db)
+    rows = db.execute(
+        select(Event, Strap.display_name)
+        .join(Strap, Event.device_id == Strap.device_id)
+        .where(Strap.owner_id == owner.id,
+               Event.type.in_([EventType.state_change, EventType.recalibration]))
+        .order_by(Event.ts.desc(), Event.id.desc())
+        .limit(max(1, min(limit, 100)))
+    ).all()
+    out = []
+    for event, name in rows:
+        value = event.value or {}
+        if event.type == EventType.recalibration:
+            kind, text = "recalibration", "Recalibrated"
+        elif value.get("state") == StrapState.LOW.value:
+            kind, text = "low", "Went LOW"
+        else:
+            kind, text = "ok", "Back to OK"
+        out.append({"ts": event.ts, "device_id": event.device_id, "strap_name": name or event.device_id,
+                    "kind": kind, "text": text, "gap": value.get("gap"), "baseline": value.get("baseline")})
+    return out
+
+
 @router.get("/history/{device_id}")
 def history(device_id: str, limit: int = 100, db: Session = Depends(get_db)):
     strap = owned_strap(db, device_id)

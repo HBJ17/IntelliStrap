@@ -197,3 +197,18 @@ def test_delete_strap_and_add_it_back(auth_client, demo, client, session):
                                                     "label": "Rice"})
     assert r.status_code == 200
     assert auth_client.delete("/api/straps/sb-NOPE00000000").status_code == 404
+
+
+def test_recent_events_stream(auth_client, demo, client):
+    rice, sago = demo["straps"]["Rice"], demo["straps"]["Sago"]
+    for strap, event_type, payload in [(rice, "state_change", {"state": "LOW", "gap": 8.0}),
+                                       (rice, "heartbeat", {}),
+                                       (sago, "recalibration", {"baseline": 790.0}),
+                                       (rice, "state_change", {"state": "OK"})]:
+        client.post("/api/device/events", headers=strap["headers"], json={"type": event_type, "payload": payload})
+        clock.advance(seconds=10)
+    events = auth_client.get("/api/events/recent").json()
+    assert [(e["strap_name"], e["kind"]) for e in events] == [
+        ("Rice jar", "ok"), ("Sago jar", "recalibration"), ("Rice jar", "low")]
+    assert events[2]["gap"] == 8.0 and events[1]["baseline"] == 790.0
+    assert len(auth_client.get("/api/events/recent?limit=1").json()) == 1

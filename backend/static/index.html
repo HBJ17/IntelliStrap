@@ -4,152 +4,217 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>IntelliStrap</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap">
   <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
+  <!-- LOGIN -->
   <div id="login" class="hidden">
-    <form class="card" id="login-form">
-      <h2>IntelliStrap</h2>
+    <form class="panel" id="login-form">
+      <div class="brand">
+        <span class="brand-mark"><span class="ic" data-icon="sensors"></span></span>
+        <span class="brand-name">IntelliStrap</span>
+      </div>
       <label for="login-password">Dashboard password</label>
       <input id="login-password" type="password" autocomplete="current-password" required>
-      <div class="row" style="margin-top:12px"><button class="primary" type="submit">Sign in</button></div>
-      <p class="muted" id="login-error"></p>
+      <button class="btn primary" type="submit" style="width:100%;margin-top:14px">Sign in</button>
+      <p class="error" id="login-error"></p>
     </form>
   </div>
 
-  <header>
-    <h1>IntelliStrap</h1>
-    <nav id="nav">
-      <a href="#straps" data-view="straps">Straps</a>
-      <a href="#list" data-view="list">Shopping list</a>
-      <a href="#claim" data-view="claim">Add strap</a>
-      <a href="#history" data-view="history">History</a>
-      <a href="#settings" data-view="settings">Settings</a>
-    </nav>
-    <button class="small" id="logout">Sign out</button>
+  <!-- TOP BAR -->
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark"><span class="ic" data-icon="sensors"></span></span>
+      <span class="brand-name">IntelliStrap</span>
+      <span class="chip">Pantry</span>
+    </div>
+    <div class="live" id="live-capsule"><span class="pulse"></span><span id="live-text">Connecting…</span></div>
+    <span class="spacer"></span>
+    <span class="chip" id="mode-chip"></span>
+    <button class="btn" id="logout" title="Sign out"><span class="ic" data-icon="logout"></span><span class="txt">Sign out</span></button>
   </header>
 
-  <main>
-    <section id="view-straps" data-view="straps">
-      <h2>Straps</h2>
-      <div class="grid" id="strap-grid"></div>
-    </section>
-
-    <section id="view-list" data-view="list" class="hidden">
-      <h2>Shopping list</h2>
-      <div class="card">
-        <div class="row">
-          <strong id="list-total">₹0</strong><span class="muted" id="list-threshold"></span>
-          <span class="spacer"></span>
-          <button class="primary" id="list-send">Send now</button>
+  <div class="shell">
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+      <div>
+        <div class="node-card">
+          <div class="head"><span>INTELLISTRAP SERVER</span><span class="dot" id="node-dot"></span></div>
+          <p class="muted mono" id="node-sub" style="margin:4px 0 0">Messaging: –</p>
+          <div class="foot"><span id="node-online">– straps online</span><span id="node-low" class="t-low"></span></div>
         </div>
-        <div class="bar" id="list-bar"><div style="width:0%"></div></div>
-        <div class="row" id="list-missing"></div>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>Item</th><th>Jar</th><th>Qty</th><th>Price</th><th>Added</th><th></th></tr></thead>
-            <tbody id="list-body"></tbody>
-          </table>
-        </div>
-        <div class="row" style="margin-top:12px">
-          <select id="list-add-select" aria-label="Add to list" style="flex:1"></select>
-          <button id="list-add">Add to list</button>
-        </div>
+        <nav id="nav">
+          <a href="#straps" data-view="straps"><span class="ic" data-icon="grid"></span><span>Live Jar View</span></a>
+          <a href="#list" data-view="list"><span class="ic" data-icon="cart"></span><span>Shopping List</span><span class="badge hidden" id="nav-list-badge"></span></a>
+          <a href="#claim" data-view="claim"><span class="ic" data-icon="plus"></span><span>Add Strap</span></a>
+          <a href="#history" data-view="history"><span class="ic" data-icon="history"></span><span>History</span></a>
+          <a href="#settings" data-view="settings"><span class="ic" data-icon="settings"></span><span>Settings</span></a>
+        </nav>
       </div>
-      <div class="card">
-        <h3>Orders</h3>
-        <div id="orders"></div>
+      <div class="side-foot">
+        <p class="muted" id="side-timings">LOW hold – · Offline after –</p>
       </div>
-    </section>
+    </aside>
 
-    <section id="view-claim" data-view="claim" class="hidden">
-      <h2>Add a strap</h2>
-      <form class="card" id="claim-form" style="max-width:420px">
-        <p class="muted">Switch the new strap on and connect it to Wi-Fi. It shows a 6-character claim code on its
-          serial log (or sticker). Enter it here.</p>
-        <label for="claim-code">Claim code</label>
-        <input id="claim-code" maxlength="6" required autocapitalize="characters" style="text-transform:uppercase">
-        <label for="claim-name">Jar name</label>
-        <input id="claim-name" maxlength="80" required placeholder="e.g. Rice jar">
-        <label for="claim-item">Contents label</label>
-        <input id="claim-item" list="label-options" maxlength="80" placeholder="e.g. Rice (pick or type a new one)">
-        <label for="claim-price">Price (₹)</label>
-        <input id="claim-price" type="number" min="0" placeholder="e.g. 60">
-        <div class="row" style="margin-top:12px"><button class="primary" type="submit">Add strap</button></div>
-      </form>
-    </section>
+    <main>
+      <!-- LIVE JAR VIEW -->
+      <section id="view-straps" data-view="straps">
+        <div class="metrics" id="metrics"></div>
 
-    <section id="view-history" data-view="history" class="hidden">
-      <h2>History</h2>
-      <div class="card">
-        <div class="row">
-          <label for="history-strap" style="margin:0">Strap</label>
-          <select id="history-strap"></select>
+        <div class="panel toolbar">
+          <div class="seg" id="strap-filter">
+            <button data-filter="all" class="on">All jars</button>
+            <button data-filter="LOW">LOW</button>
+            <button data-filter="OK">OK</button>
+            <button data-filter="OFFLINE">Offline / waiting</button>
+          </div>
+          <a class="btn primary" href="#claim"><span class="ic" data-icon="plus"></span><span>Add strap</span></a>
         </div>
-        <ul class="timeline" id="history-list" style="margin-top:10px"></ul>
-      </div>
-    </section>
 
-    <section id="view-settings" data-view="settings" class="hidden">
-      <h2>Settings</h2>
-      <form class="card" id="settings-form">
-        <h3>Owner</h3>
-        <div class="form-grid">
-          <div><label for="s-owner-name">Name</label><input id="s-owner-name" maxlength="80"></div>
-          <div><label for="s-owner-wa">WhatsApp number</label><input id="s-owner-wa" placeholder="+91XXXXXXXXXX"></div>
-          <div><label for="s-threshold">List threshold (₹)</label><input id="s-threshold" type="number" min="1"></div>
+        <div class="workspace">
+          <div>
+            <div class="section-title">
+              <h3>Smart Jar Straps</h3>
+              <span class="label" id="strap-count"></span>
+            </div>
+            <div class="jar-grid" id="strap-grid"></div>
+          </div>
+          <div class="panel">
+            <div class="panel-head">
+              <div class="row"><span class="ping"></span><h3>Live Stream</h3></div>
+              <span class="label">Updates every 3 s</span>
+            </div>
+            <div class="stream" id="stream"></div>
+          </div>
         </div>
-        <h3 style="margin-top:16px">Shop</h3>
-        <div class="form-grid">
-          <div><label for="s-shop-name">Shop name</label><input id="s-shop-name" maxlength="80"></div>
-          <div><label for="s-shop-wa">Shop WhatsApp number</label><input id="s-shop-wa" placeholder="+91XXXXXXXXXX"></div>
-          <div><label for="s-shop-opt">Shopkeeper opted in</label>
-            <select id="s-shop-opt"><option value="false">No</option><option value="true">Yes</option></select></div>
-        </div>
-        <h3 style="margin-top:16px">Timings</h3>
-        <div class="form-grid" id="s-global"></div>
-        <div class="row" style="margin-top:14px"><button class="primary" type="submit">Save settings</button>
-          <span class="muted" id="s-mode"></span></div>
-      </form>
+      </section>
 
-      <div class="card">
-        <h3>Catalog and prices</h3>
-        <p class="muted">Renaming an item here renames that label on every jar that uses it.</p>
-        <div class="table-wrap">
-          <table>
-            <thead><tr><th>Item</th><th>Unit</th><th>Pack</th><th>Price (₹)</th><th></th></tr></thead>
-            <tbody id="catalog-body"></tbody>
-            <tfoot>
-              <tr>
-                <td><input id="new-item-name" placeholder="New item"></td>
-                <td><input id="new-item-unit" placeholder="kg"></td>
-                <td><input id="new-item-pack" placeholder="1 kg"></td>
-                <td><input id="new-item-price" type="number" min="0" placeholder="price"></td>
-                <td><button class="small primary" id="new-item-add">Add</button></td>
-              </tr>
-            </tfoot>
-          </table>
+      <!-- SHOPPING LIST -->
+      <section id="view-list" data-view="list" class="hidden">
+        <div class="page-head">
+          <div><h2>Shopping List</h2><p class="muted">Jars that stay LOW are added automatically. The list is sent on WhatsApp when it reaches the threshold.</p></div>
+          <button class="btn primary" id="list-send"><span class="ic" data-icon="send"></span><span>Send now</span></button>
         </div>
-      </div>
-    </section>
-  </main>
+        <div class="panel">
+          <div class="row" style="justify-content:space-between">
+            <div class="row" style="align-items:baseline">
+              <span class="mono" style="font:700 32px/36px var(--f-head)" id="list-total">₹0</span>
+              <span class="muted mono" id="list-threshold"></span>
+            </div>
+            <div class="row" id="list-missing"></div>
+          </div>
+          <div class="progress" id="list-bar" style="margin-top:12px"><div style="width:0%"></div></div>
+        </div>
+        <div class="panel">
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Item</th><th>Jar</th><th>Qty</th><th>Price</th><th>Added</th><th></th></tr></thead>
+              <tbody id="list-body"></tbody>
+            </table>
+          </div>
+          <div class="row" style="margin-top:12px;flex-wrap:nowrap">
+            <select id="list-add-select" aria-label="Add to list"></select>
+            <button class="btn" id="list-add"><span class="ic" data-icon="plus"></span><span>Add to list</span></button>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><h3>Orders</h3><span class="label">Most recent first</span></div>
+          <div id="orders"></div>
+        </div>
+      </section>
 
+      <!-- ADD STRAP -->
+      <section id="view-claim" data-view="claim" class="hidden">
+        <div class="page-head"><div><h2>Add a Strap</h2><p class="muted">Switch the new strap on and connect it to Wi-Fi. It shows a 6-character claim code on its serial log (or sticker).</p></div></div>
+        <form class="panel" id="claim-form" style="max-width:480px">
+          <label for="claim-code">Claim code</label>
+          <input id="claim-code" class="mono" maxlength="6" required autocapitalize="characters" style="text-transform:uppercase;letter-spacing:.2em" placeholder="K7PQ2M">
+          <label for="claim-name">Jar name</label>
+          <input id="claim-name" maxlength="80" required placeholder="e.g. Rice jar">
+          <div class="edit-grid">
+            <div>
+              <label for="claim-item">Contents label</label>
+              <input id="claim-item" list="label-options" maxlength="80" placeholder="e.g. Rice">
+            </div>
+            <div>
+              <label for="claim-price">Price (₹)</label>
+              <input id="claim-price" type="number" min="0" placeholder="60">
+            </div>
+          </div>
+          <button class="btn primary" type="submit" style="margin-top:16px"><span class="ic" data-icon="plus"></span><span>Add strap</span></button>
+        </form>
+      </section>
+
+      <!-- HISTORY -->
+      <section id="view-history" data-view="history" class="hidden">
+        <div class="page-head">
+          <div><h2>History</h2><p class="muted">State changes, refills, recalibrations and orders for one strap.</p></div>
+          <select id="history-strap" style="width:auto;min-width:200px" aria-label="Strap"></select>
+        </div>
+        <div class="panel"><ul class="timeline" id="history-list"></ul></div>
+      </section>
+
+      <!-- SETTINGS -->
+      <section id="view-settings" data-view="settings" class="hidden">
+        <div class="page-head"><div><h2>Settings</h2><p class="muted" id="s-mode"></p></div></div>
+        <form class="panel" id="settings-form">
+          <div class="panel-head"><h3>Owner &amp; shop</h3></div>
+          <div class="form-grid">
+            <div><label for="s-owner-name">Owner name</label><input id="s-owner-name" maxlength="80"></div>
+            <div><label for="s-owner-wa">Owner WhatsApp</label><input id="s-owner-wa" placeholder="+91XXXXXXXXXX"></div>
+            <div><label for="s-threshold">List threshold (₹)</label><input id="s-threshold" type="number" min="1"></div>
+            <div><label for="s-shop-name">Shop name</label><input id="s-shop-name" maxlength="80"></div>
+            <div><label for="s-shop-wa">Shop WhatsApp</label><input id="s-shop-wa" placeholder="+91XXXXXXXXXX"></div>
+            <div><label for="s-shop-opt">Shopkeeper opted in</label>
+              <select id="s-shop-opt"><option value="false">No</option><option value="true">Yes</option></select></div>
+          </div>
+          <div class="panel-head" style="margin-top:20px"><h3>Timings</h3></div>
+          <div class="form-grid" id="s-global"></div>
+          <button class="btn primary" type="submit" style="margin-top:16px">Save settings</button>
+        </form>
+
+        <div class="panel">
+          <div class="panel-head"><h3>Catalog &amp; prices</h3><span class="label">Renaming an item renames it on every jar</span></div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Item</th><th>Unit</th><th>Pack</th><th>Price (₹)</th><th></th></tr></thead>
+              <tbody id="catalog-body"></tbody>
+              <tfoot>
+                <tr>
+                  <td><input id="new-item-name" placeholder="New item"></td>
+                  <td><input id="new-item-unit" placeholder="kg"></td>
+                  <td><input id="new-item-pack" placeholder="1 kg"></td>
+                  <td><input id="new-item-price" type="number" min="0" placeholder="price"></td>
+                  <td><button class="btn sm primary" id="new-item-add">Add</button></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- WHATSAPP SIMULATOR -->
   <details id="sim" class="hidden">
-    <summary>WhatsApp simulator</summary>
+    <summary><span class="ic" data-icon="message"></span>WhatsApp simulator<span class="spacer"></span><span class="ic" data-icon="chevron"></span></summary>
     <div class="sim-body">
-      <div class="card">
-        <h3>Fake a strap</h3>
-        <div class="row">
-          <select id="sim-strap" aria-label="Strap" style="flex:1"></select>
-          <button class="small" data-sim-state="LOW">Goes LOW</button>
-          <button class="small" data-sim-state="OK">Refilled (OK)</button>
+      <div class="panel" style="padding:12px">
+        <span class="label">Fake a strap</span>
+        <div class="row" style="margin-top:6px;flex-wrap:nowrap">
+          <select id="sim-strap" aria-label="Strap"></select>
         </div>
-        <div class="row">
-          <button class="small" id="sim-ff">Skip hold time</button>
-          <button class="small" id="sim-clear">Clear inbox</button>
+        <div class="row" style="margin-top:8px">
+          <button class="btn sm" data-sim-state="LOW">Goes LOW</button>
+          <button class="btn sm" data-sim-state="OK">Refilled (OK)</button>
+          <button class="btn sm" id="sim-ff">Skip hold time</button>
+          <button class="btn sm" id="sim-clear">Clear inbox</button>
         </div>
-        <p class="muted">Messages below are what the owner and shop phones would receive.</p>
       </div>
+      <p class="muted" style="margin:0">What the owner and shop phones would receive:</p>
       <div id="sim-inbox"></div>
     </div>
   </details>
