@@ -23,6 +23,7 @@ from fastapi.testclient import TestClient  # noqa: E402
 from app import clock, db  # noqa: E402
 from app.config import get_settings  # noqa: E402
 from app.main import create_app  # noqa: E402
+from app.messaging import get_messenger, set_messenger  # noqa: E402
 from app.models import Base  # noqa: E402
 
 T0 = datetime(2026, 1, 1, 9, 0, tzinfo=timezone.utc)
@@ -31,6 +32,7 @@ T0 = datetime(2026, 1, 1, 9, 0, tzinfo=timezone.utc)
 @pytest.fixture(autouse=True)
 def fresh_state():
     get_settings.cache_clear()
+    set_messenger(None)
     engine = db.configure("sqlite://")
     Base.metadata.create_all(engine)
     clock.set_now(T0)
@@ -62,6 +64,21 @@ def register(client):
         data["headers"] = {"Authorization": f"Bearer {data['device_token']}", "X-Device-Id": device_id}
         return data
     return _register
+
+
+@pytest.fixture
+def sim():
+    return get_messenger()
+
+
+@pytest.fixture
+def strap_event(client):
+    def _send(strap: dict, event_type: str, payload: dict | None = None):
+        r = client.post("/api/device/events", headers=strap["headers"],
+                        json={"type": event_type, "payload": payload or {}})
+        assert r.status_code == 200, r.text
+        return r.json()
+    return _send
 
 
 @pytest.fixture

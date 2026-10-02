@@ -7,8 +7,8 @@ from sqlalchemy.orm import Session
 from .. import clock, rules, settings_store
 from ..config import get_settings
 from ..db import get_db
-from ..models import Event, EventType, Item, ListItem, Shop, Strap, StrapState
-from ..schemas import ClaimRequest, ItemIn, LoginRequest, SettingsUpdate, StrapPatch
+from ..models import Event, EventType, Item, ListItem, ListStatus, Order, Shop, Strap, StrapState
+from ..schemas import ClaimRequest, ItemIn, ListAdd, LoginRequest, SettingsUpdate, StrapPatch
 from ..security import (SESSION_COOKIE, SESSION_MAX_AGE, constant_eq, make_session_token, require_dashboard,
                         session_valid)
 
@@ -244,6 +244,8 @@ def update_item(item_id: int, body: ItemIn, db: Session = Depends(get_db)):
     item = get_item_or_404(db, item_id)
     for field, value in body.model_dump().items():
         setattr(item, field, value)
+    db.flush()
+    rules.reprice_pending(db, item, clock.now())
     db.commit()
     return item_out(item)
 
@@ -257,3 +259,135 @@ def delete_item(item_id: int, db: Session = Depends(get_db)):
     db.delete(item)
     db.commit()
     return {"ok": True}
+
+
+# --- shopping list and orders ----------------------------------------------------
+
+def row_out(row: ListItem) -> dict:
+    return {
+        "id": row.id,
+        "strap_id": row.strap_id,
+        "strap_name": row.strap.display_name if row.strap else None,
+        "item_id": row.item_id,
+        "item_name": row.item.name,
+        "qty": row.qty,
+        "price_at_time_inr": row.price_at_time_inr,
+        "line_total_inr": row.line_total_inr,
+        "needs_price": row.needs_price,
+        "status": row.status.value,
+        "added_at": row.added_at,
+    }
+
+
+def order_out(order: Order) -> dict:
+    return {
+        "id": order.id,
+        "status": order.status.value,
+        "unsent": order.status.value == "send_failed",
+        "total_inr": order.total_inr,
+        "shop": order.shop.name if order.shop else (order.owner.shop.name if order.owner.shop else None),
+        "created_at": order.created_at,
+        "owner_sent_at": order.owner_sent_at,
+        "reminder_sent_at": order.reminder_sent_at,
+        "sent_to_shop_at": order.sent_to_shop_at,
+        "last_error": order.last_error,
+        "items": [{"name": r.item.name, "qty": r.qty, "line_total_inr": r.line_total_inr, "status": r.status.value}
+                  for r in order.rows],
+    }
+
+
+def _list_out(db: Session) -> dict:
+    summary = rules.list_summary(db, rules.get_owner(db))
+    return {**summary, "rows": [row_out(r) for r in summary["rows"]]}
+
+
+@router.get("/list")
+def get_list(db: Session = Depends(get_db)):
+    out = _list_out(db)
+    db.commit()
+    return out
+
+
+@router.post("/list/items", status_code=201)
+def add_to_list(body: ListAdd, db: Session = Depends(get_db)):
+    owner = rules.get_owner(db)
+    now = clock.now()
+    try:
+        if body.strap_id:
+            strap = owned_strap(db, body.strap_id)
+            if strap.item is None:
+                raise HTTPException(422, "give this strap a contents label first")
+            rules.add_list_item(db, owner, strap.item, now, strap=strap)
+        else:
+            rules.add_list_item(db, owner, get_item_or_404(db, body.item_id), now)
+        rules.check_threshold(db, owner, now)
+    except rules.RuleError as exc:
+        db.rollback()
+        raise HTTPException(409, str(exc)) from exc
+    db.commit()
+    return _list_out(db)
+
+
+@router.delete("/list/items/{row_id}")
+def remove_from_list(row_id: int, db: Session = Depends(get_db)):
+    owner = rules.get_owner(db)
+    row = db.get(ListItem, row_id)
+    if row is None or row.owner_id != owner.id:
+        raise HTTPException(404, "list row not found")
+    if row.status != ListStatus.pending:
+        raise HTTPException(409, "only pending rows can be removed")
+    row.status = ListStatus.cancelled
+    db.commit()
+    return _list_out(db)
+
+
+@router.post("/list/send")
+def send_list_now(db: Session = Depends(get_db)):
+    try:
+        order = rules.send_now(db, rules.get_owner(db), clock.now())
+    except rules.RuleError as exc:
+        db.rollback()
+        raise HTTPException(409, str(exc)) from exc
+    db.commit()
+    return order_out(order)
+
+
+@router.get("/orders")
+def list_orders(limit: int = 20, db: Session = Depends(get_db)):
+    owner = rules.get_owner(db)
+    orders = db.scalars(select(Order).where(Order.owner_id == owner.id)
+                        .order_by(Order.created_at.desc(), Order.id.desc()).limit(max(1, min(limit, 100)))).all()
+    out = [order_out(o) for o in orders]
+    db.commit()
+    return out
+
+
+def owned_order(db: Session, order_id: int) -> Order:
+    order = db.get(Order, order_id)
+    if order is None or order.owner_id != rules.get_owner(db).id:
+        raise HTTPException(404, "order not found")
+    return order
+
+
+@router.post("/orders/{order_id}/retry")
+def retry_order(order_id: int, db: Session = Depends(get_db)):
+    order = owned_order(db, order_id)
+    try:
+        rules.retry_order(db, order, clock.now())
+    except rules.RuleError as exc:
+        db.rollback()
+        raise HTTPException(409, str(exc)) from exc
+    db.commit()
+    return order_out(order)
+
+
+@router.post("/orders/{order_id}/cancel")
+def cancel_order(order_id: int, db: Session = Depends(get_db)):
+    order = owned_order(db, order_id)
+    try:
+        rules.cancel_order(db, order)
+    except rules.RuleError as exc:
+        db.rollback()
+        raise HTTPException(409, str(exc)) from exc
+    db.commit()
+    return order_out(order)

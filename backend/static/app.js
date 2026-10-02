@@ -14,6 +14,7 @@ const GLOBAL_LABELS = {
 
 const $ = (sel) => document.querySelector(sel);
 const state = { view: "straps", items: [], straps: [], me: null };
+const pollers = [];  // run after each view refresh
 
 function esc(value) {
   return String(value ?? "").replace(/[&<>"']/g, (c) => ({
@@ -328,6 +329,182 @@ $("#new-item-add").addEventListener("click", async (e) => {
   }
 });
 
+const ORDER_LABELS = {
+  awaiting_owner: "Waiting for owner",
+  confirmed: "Sending to shop",
+  sent_to_shop: "Sent to shop",
+  cancelled: "Not now",
+  expired: "Expired",
+  send_failed: "Unsent",
+};
+
+views.list = {
+  async load() {
+    const [list, orders, straps] = await Promise.all([
+      api("GET", "/api/list"), api("GET", "/api/orders"), api("GET", "/api/straps"),
+    ]);
+    state.straps = straps;
+    $("#list-total").textContent = `₹${list.total_inr}`;
+    $("#list-threshold").textContent = `of ₹${list.threshold_inr} — the list is sent automatically at the threshold`;
+    $("#list-bar").firstElementChild.style.width = `${Math.min(100, (list.total_inr / list.threshold_inr) * 100)}%`;
+    $("#list-send").disabled = !list.rows.length || list.missing_prices.length > 0;
+    $("#list-missing").innerHTML = list.missing_prices.map((m) =>
+      `<a class="pill warn" href="#settings">Enter price: ${esc(m.name)}</a>`).join("");
+    $("#list-body").innerHTML = list.rows.length ? list.rows.map((r) => `
+      <tr data-id="${r.id}">
+        <td>${esc(r.item_name)}</td>
+        <td class="muted">${esc(r.strap_name || "manual")}</td>
+        <td>${r.qty}</td>
+        <td>${r.needs_price ? `<span class="pill warn">no price</span>` : `₹${r.line_total_inr}`}</td>
+        <td class="muted">${esc(ago(r.added_at))}</td>
+        <td><button class="small danger list-remove">Remove</button></td>
+      </tr>`).join("") : `<tr><td colspan="6" class="empty">Nothing on the list. Jars that stay LOW are added automatically.</td></tr>`;
+
+    if (!editing($("#list-add-select").parentElement)) {
+      const listed = new Set(list.rows.map((r) => r.strap_id));
+      $("#list-add-select").innerHTML =
+        `<optgroup label="From a jar">${straps.filter((s) => s.item && !listed.has(s.device_id)).map((s) =>
+          `<option value="strap:${esc(s.device_id)}">${esc(s.display_name || s.device_id)} (${esc(s.item.name)})</option>`).join("")}</optgroup>` +
+        `<optgroup label="Catalog item">${state.items.map((i) =>
+          `<option value="item:${i.id}">${esc(i.name)}</option>`).join("")}</optgroup>`;
+    }
+
+    $("#orders").innerHTML = orders.length ? orders.map((o) => `
+      <div class="order" data-id="${o.id}">
+        <div class="row">
+          <strong>#${o.id} · ₹${o.total_inr}</strong>
+          <span class="pill status-${esc(o.status)}">${esc(ORDER_LABELS[o.status] || o.status)}</span>
+          <span class="spacer"></span>
+          <span class="muted">${esc(when(o.created_at))}</span>
+        </div>
+        <div class="muted">${esc(o.items.map((i) => `${i.name} ×${i.qty}`).join(", ") || "—")}${o.shop ? ` → ${esc(o.shop)}` : ""}</div>
+        ${o.last_error ? `<div class="muted" style="color:var(--low)">${esc(o.last_error)}</div>` : ""}
+        ${o.unsent || o.status === "awaiting_owner" ? `<div class="row">
+          ${o.unsent ? `<button class="small primary order-retry">Retry send</button>` : ""}
+          <button class="small order-cancel">Cancel order</button></div>` : ""}
+      </div>`).join("") : `<div class="empty">No orders yet.</div>`;
+  },
+};
+
+$("#list-body").addEventListener("click", async (e) => {
+  if (!e.target.classList.contains("list-remove")) return;
+  try {
+    await api("DELETE", `/api/list/items/${e.target.closest("tr").dataset.id}`);
+    await views.list.load();
+  } catch (err) {
+    toast(err.message);
+  }
+});
+
+$("#list-add").addEventListener("click", async () => {
+  const [kind, id] = $("#list-add-select").value.split(":");
+  if (!id) return;
+  try {
+    await api("POST", "/api/list/items", kind === "strap" ? { strap_id: id } : { item_id: Number(id) });
+    document.activeElement.blur();
+    await views.list.load();
+  } catch (err) {
+    toast(err.message);
+  }
+});
+
+$("#list-send").addEventListener("click", async () => {
+  if (!confirm("Send the list to your WhatsApp now?")) return;
+  try {
+    const order = await api("POST", "/api/list/send");
+    toast(order.status === "send_failed" ? `Not sent: ${order.last_error}` : "List sent to your WhatsApp");
+    await views.list.load();
+  } catch (err) {
+    toast(err.message);
+  }
+});
+
+$("#orders").addEventListener("click", async (e) => {
+  const order = e.target.closest(".order");
+  if (!order) return;
+  try {
+    if (e.target.classList.contains("order-retry")) {
+      const o = await api("POST", `/api/orders/${order.dataset.id}/retry`);
+      toast(o.status === "send_failed" ? `Still unsent: ${o.last_error}` : "Sent");
+    } else if (e.target.classList.contains("order-cancel")) {
+      if (!confirm("Cancel this order? Its items go back on the list.")) return;
+      await api("POST", `/api/orders/${order.dataset.id}/cancel`);
+    } else {
+      return;
+    }
+    await views.list.load();
+  } catch (err) {
+    toast(err.message);
+  }
+});
+
+// --- simulator panel -------------------------------------------------------------
+
+const ROLE_LABELS = { owner_list: "To owner", shop_order: "To shop", text: "Text" };
+
+async function pollSimulator() {
+  if (state.me?.messaging_mode !== "simulator" || !$("#sim").open) return;
+  if (!editing($("#sim"))) {
+    $("#sim-strap").innerHTML = state.straps.map((s) =>
+      `<option value="${esc(s.device_id)}">${esc(s.display_name || s.device_id)}</option>`).join("");
+  }
+  const { messages } = await api("GET", "/api/sim/messages");
+  $("#sim-inbox").innerHTML = messages.length ? messages.map((m) => `
+    <div class="bubble ${esc(m.role)}">
+      <div class="meta">${esc(ROLE_LABELS[m.role] || m.role)} ${esc(m.to)} · ${esc(new Date(m.ts).toLocaleTimeString())}</div>
+      <div class="msg">${esc(m.text)}</div>
+      ${m.buttons.length ? `<div class="row">${m.buttons.map((b) =>
+        `<button class="small" data-order="${m.order_id}" data-action="${b.payload.endsWith(":yes") ? "order" : "not_now"}">${esc(b.title)}</button>`).join("")}</div>` : ""}
+    </div>`).join("") : `<div class="empty">No messages yet.</div>`;
+}
+pollers.push(pollSimulator);
+
+$("#sim").addEventListener("toggle", () => {
+  if ($("#sim").open) api("GET", "/api/straps").then((s) => { state.straps = s; return pollSimulator(); }).catch(() => {});
+});
+
+$("#sim-inbox").addEventListener("click", async (e) => {
+  const btn = e.target.closest("button[data-order]");
+  if (!btn) return;
+  try {
+    const { outcome } = await api("POST", "/api/sim/reply", { order_id: Number(btn.dataset.order), action: btn.dataset.action });
+    toast(`Owner tapped ${btn.textContent}: ${outcome.replace(/_/g, " ")}`);
+    await refresh();
+  } catch (err) {
+    toast(err.message);
+  }
+});
+
+document.querySelectorAll("[data-sim-state]").forEach((btn) => btn.addEventListener("click", async () => {
+  const stateValue = btn.dataset.simState;
+  try {
+    await api("POST", "/api/sim/event", {
+      device_id: $("#sim-strap").value,
+      type: "state_change",
+      payload: { state: stateValue, gap: stateValue === "LOW" ? 8 : 35 },
+    });
+    toast(`Strap reported ${stateValue}`);
+    await refresh();
+  } catch (err) {
+    toast(err.message);
+  }
+}));
+
+$("#sim-ff").addEventListener("click", async () => {
+  try {
+    const { added } = await api("POST", "/api/sim/fast-forward");
+    toast(`${added} jar(s) added to the list`);
+    await refresh();
+  } catch (err) {
+    toast(err.message);
+  }
+});
+
+$("#sim-clear").addEventListener("click", async () => {
+  await api("DELETE", "/api/sim/messages");
+  await pollSimulator();
+});
+
 // --- routing and polling -------------------------------------------------------
 
 function route() {
@@ -340,7 +517,6 @@ function route() {
   refresh();
 }
 
-const pollers = [];
 
 async function refresh() {
   if (!state.me?.authenticated) return;
@@ -359,6 +535,7 @@ async function boot() {
     return;
   }
   document.body.dataset.mode = state.me.messaging_mode;
+  $("#sim").classList.toggle("hidden", state.me.messaging_mode !== "simulator");
   state.items = await api("GET", "/api/items");
   route();
 }

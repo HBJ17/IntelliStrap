@@ -21,6 +21,7 @@
     <h1>SmartBand <span>Pantry Monitor</span></h1>
     <nav id="nav">
       <a href="#straps" data-view="straps">Straps</a>
+      <a href="#list" data-view="list">Shopping list</a>
       <a href="#claim" data-view="claim">Claim a strap</a>
       <a href="#history" data-view="history">History</a>
       <a href="#settings" data-view="settings">Settings</a>
@@ -32,6 +33,33 @@
     <section id="view-straps" data-view="straps">
       <h2>Straps</h2>
       <div class="grid" id="strap-grid"></div>
+    </section>
+
+    <section id="view-list" data-view="list" class="hidden">
+      <h2>Shopping list</h2>
+      <div class="card">
+        <div class="row">
+          <strong id="list-total">₹0</strong><span class="muted" id="list-threshold"></span>
+          <span class="spacer"></span>
+          <button class="primary" id="list-send">Send now</button>
+        </div>
+        <div class="bar" id="list-bar"><div style="width:0%"></div></div>
+        <div class="row" id="list-missing"></div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Item</th><th>Jar</th><th>Qty</th><th>Price</th><th>Added</th><th></th></tr></thead>
+            <tbody id="list-body"></tbody>
+          </table>
+        </div>
+        <div class="row" style="margin-top:12px">
+          <select id="list-add-select" aria-label="Add to list" style="flex:1"></select>
+          <button id="list-add">Add to list</button>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Orders</h3>
+        <div id="orders"></div>
+      </div>
     </section>
 
     <section id="view-claim" data-view="claim" class="hidden">
@@ -101,6 +129,26 @@
       </div>
     </section>
   </main>
+
+  <details id="sim" class="hidden">
+    <summary>WhatsApp simulator</summary>
+    <div class="sim-body">
+      <div class="card">
+        <h3>Fake a strap</h3>
+        <div class="row">
+          <select id="sim-strap" aria-label="Strap" style="flex:1"></select>
+          <button class="small" data-sim-state="LOW">Goes LOW</button>
+          <button class="small" data-sim-state="OK">Refilled (OK)</button>
+        </div>
+        <div class="row">
+          <button class="small" id="sim-ff">Skip hold time</button>
+          <button class="small" id="sim-clear">Clear inbox</button>
+        </div>
+        <p class="muted">Messages below are what the owner and shop phones would receive.</p>
+      </div>
+      <div id="sim-inbox"></div>
+    </div>
+  </details>
 
   <div id="toast" role="status"></div>
   <script src="/static/app.js"></script>

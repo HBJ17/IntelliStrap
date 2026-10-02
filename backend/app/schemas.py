@@ -1,6 +1,6 @@
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from .models import EventType
 
@@ -121,3 +121,25 @@ class SettingsUpdate(BaseModel):
     owner: OwnerSettings | None = None
     shop: ShopSettings | None = None
     global_: GlobalSettings | None = Field(default=None, alias="global")
+
+
+class ListAdd(BaseModel):
+    strap_id: str | None = Field(default=None, max_length=32)
+    item_id: int | None = None
+
+    @model_validator(mode="after")
+    def _one_of(self):
+        if (self.strap_id is None) == (self.item_id is None):
+            raise ValueError("give exactly one of strap_id or item_id")
+        return self
+
+
+class SimReply(BaseModel):
+    order_id: int
+    action: Literal["order", "not_now"]
+
+
+class SimEvent(BaseModel):
+    device_id: str = Field(pattern=DEVICE_ID_PATTERN)
+    type: EventType
+    payload: dict = Field(default_factory=dict)

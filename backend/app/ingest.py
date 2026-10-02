@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from . import clock, settings_store
+from . import clock, rules, settings_store
 from .models import Event, EventType, Strap, StrapState
 from .schemas import PAYLOAD_MODELS
 
@@ -67,6 +67,8 @@ def ingest_event(db: Session, strap: Strap, event_type: EventType | str, payload
         if new_state != strap.state:
             strap.state = new_state
             strap.state_since = now
+        db.flush()
+        rules.on_state_change(db, strap, new_state, now)
     db.flush()
     return IngestResult(stored=True, event=event)
 
