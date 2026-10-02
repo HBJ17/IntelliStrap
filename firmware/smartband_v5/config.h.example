@@ -1,0 +1,29 @@
+// Copy to config.h (git-ignored) and fill in. Never commit config.h.
+#pragma once
+
+// --- pins (match the existing SmartBand v5 board) ---------------------------
+#define PIN_BUZZER 3
+#define PIN_BUTTON 9          // active LOW, internal pull-up
+#define PIN_LED    8          // used to blink the claim code; -1 if not fitted
+
+// --- backend ----------------------------------------------------------------
+// Default backend URL offered in the setup portal (the owner can change it there).
+#define DEFAULT_BACKEND_URL "https://smartband.example.com"
+
+// Factory provisioning secret: must equal DEVICE_PROVISION_SECRET on the backend.
+#define PROVISION_SECRET "change-me"
+
+// Root CA that signed the backend's TLS certificate (PEM). For Let's Encrypt use ISRG Root X1.
+// Leave empty only for plain-HTTP development against a backend on the local network.
+static const char BACKEND_CA_CERT[] = R"PEM(
+-----BEGIN CERTIFICATE-----
+...paste ISRG Root X1 (or your CA) here...
+-----END CERTIFICATE-----
+)PEM";
+
+// --- timings ----------------------------------------------------------------
+#define HEARTBEAT_INTERVAL_MS   (3UL * 60UL * 1000UL)   // ~3 min
+#define DRIFT_INTERVAL_MS       (15UL * 60UL * 1000UL)  // at most one drift event per 15 min...
+#define DRIFT_THRESHOLD         5.0f                    // ...unless the baseline moved by more than this
+#define FACTORY_RESET_HOLD_MS   10000UL                 // hold the button 10 s to wipe Wi-Fi + token
+#define SETUP_AP_PASSWORD       "smartband"             // WPA2 password of the setup hotspot (>= 8 chars)
