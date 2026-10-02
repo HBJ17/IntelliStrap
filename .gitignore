@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+
+# Local state and secrets
+.env
+*.db
+*.db-journal
+.fake_straps.json
+firmware/smartband_v5/config.h
+
+# Editors / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
