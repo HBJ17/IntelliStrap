@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from .. import clock, rules, settings_store
+from .. import clock, mqtt_adapter, rules, settings_store
 from ..config import get_settings
 from ..db import get_db
 from ..models import Event, EventType, Item, ListItem, ListStatus, Order, Shop, Strap, StrapState
@@ -135,6 +135,8 @@ def recalibrate(device_id: str, db: Session = Depends(get_db)):
     strap = owned_strap(db, device_id)
     strap.pending_command = "recalibrate"
     db.commit()
+    if get_settings().mqtt_enabled:
+        mqtt_adapter.publish_command(strap.device_id, "recalibrate")
     return {"ok": True, "pending_command": strap.pending_command}
 
 

@@ -10,7 +10,7 @@ from . import clock, rules, settings_store
 from .config import get_settings
 from .db import session_scope
 from .messaging import Messenger, MessagingError, get_messenger
-from .models import Event, EventType, Order, OrderStatus
+from .models import Event, EventType, ListItem, ListStatus, Order, OrderStatus, Strap, StrapState
 
 log = logging.getLogger(__name__)
 
@@ -51,11 +51,51 @@ def order_reminders_and_expiry(db: Session, now: datetime, messenger: Messenger 
             db.flush()
 
 
+def refill_reminders(db: Session, now: datetime, messenger: Messenger | None = None) -> int:
+    """R12: ordered and sent, but the jar still reads LOW days later -> one reminder, no new list row."""
+    messenger = messenger or get_messenger()
+    cutoff = now - timedelta(days=settings_store.get_int(db, "refill_reminder_days"))
+    rows = db.scalars(
+        select(ListItem).join(Order, ListItem.order_id == Order.id).join(Strap, ListItem.strap_id == Strap.device_id)
+        .where(ListItem.status == ListStatus.ordered, ListItem.refill_reminder_sent_at.is_(None),
+               Order.status == OrderStatus.sent_to_shop, Order.sent_to_shop_at <= cutoff,
+               Strap.state == StrapState.LOW)
+    ).all()
+    for row in rows:
+        jar = row.strap.display_name or row.strap.device_id
+        sid = rules.safe_text(messenger, row.order.owner.whatsapp_number,
+                              f"{row.item.name} was ordered on {row.order.sent_to_shop_at:%d %b} but {jar} still "
+                              "reads LOW. Refill the jar once it arrives, or recalibrate the strap if it is wrong.")
+        if sid is not None:
+            row.refill_reminder_sent_at = now
+    db.flush()
+    return len(rows)
+
+
+def offline_alerts(db: Session, now: datetime, messenger: Messenger | None = None) -> int:
+    """Tell the owner once when a claimed strap goes silent (dead battery must not look like "stock fine")."""
+    messenger = messenger or get_messenger()
+    minutes = rules.offline_minutes(db)
+    straps = db.scalars(select(Strap).where(Strap.owner_id.is_not(None), Strap.last_seen.is_not(None),
+                                            Strap.last_seen < now - timedelta(minutes=minutes),
+                                            Strap.offline_alerted_at.is_(None))).all()
+    for strap in straps:
+        sid = rules.safe_text(messenger, strap.owner.whatsapp_number,
+                              f"{strap.display_name or strap.device_id} has not reported for over {minutes} min. "
+                              "Check its battery and Wi-Fi.")
+        if sid is not None:
+            strap.offline_alerted_at = now
+    db.flush()
+    return len(straps)
+
+
 def run_frequent(now: datetime | None = None, messenger: Messenger | None = None) -> None:
     now = now or clock.now()
     with session_scope() as db:
         rules.evaluate_holds(db, now, messenger)
         order_reminders_and_expiry(db, now, messenger)
+        refill_reminders(db, now, messenger)
+        offline_alerts(db, now, messenger)
 
 
 def run_daily(now: datetime | None = None) -> None:

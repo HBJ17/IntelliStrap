@@ -167,10 +167,12 @@ def test_production_sends_both_templates(client, demo, auth_client, session):
 @pytest.mark.parametrize("status,transient", [(500, True), (503, True), (429, True), (400, False)])
 def test_twilio_errors_map_to_messaging_error(demo, status, transient):
     exc = TwilioRestException(status, "https://api.twilio.com", msg="boom", code=63016)
-    messenger = TwilioSandboxMessenger(settings_with(), client=FakeTwilioClient(fail_with=exc))
+    sleeps: list[float] = []
+    messenger = TwilioSandboxMessenger(settings_with(), client=FakeTwilioClient(fail_with=exc), sleep=sleeps.append)
     with pytest.raises(MessagingError) as info:
         messenger.send_text("+919000000001", "hi")
     assert info.value.transient is transient
+    assert sleeps == ([1.0, 2.0] if transient else [])  # 3 tries with backoff, then give up
 
 
 def test_missing_credentials_is_a_messaging_error(demo):

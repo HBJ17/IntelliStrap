@@ -37,6 +37,10 @@ class Settings(BaseSettings):
     dev_hold_seconds: int | None = None
     scheduler_enabled: bool = True
 
+    rate_limit_device_per_minute: int = 120
+    rate_limit_login_per_minute: int = 10
+    max_body_bytes: int = 16 * 1024
+
     @field_validator("dev_hold_seconds", mode="before")
     @classmethod
     def _blank_is_none(cls, v):
@@ -45,6 +49,11 @@ class Settings(BaseSettings):
     @property
     def is_dev(self) -> bool:
         return self.app_env == "dev"
+
+    def insecure_defaults(self) -> list[str]:
+        """Secrets still at their placeholder values (refused outside APP_ENV=dev)."""
+        names = ["dashboard_password", "session_secret", "device_provision_secret"]
+        return [n.upper() for n in names if getattr(self, n) in ("", "change-me")]
 
 
 @lru_cache
