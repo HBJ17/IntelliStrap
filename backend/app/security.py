@@ -2,9 +2,11 @@ import hashlib
 import hmac
 import secrets
 
-from fastapi import Depends, Header, HTTPException, status
+from fastapi import Depends, Header, HTTPException, Request, status
+from itsdangerous import BadSignature, URLSafeTimedSerializer
 from sqlalchemy.orm import Session
 
+from .config import get_settings
 from .db import get_db
 from .models import Strap
 
@@ -44,3 +46,32 @@ def current_device(
     if strap is None or not constant_eq(strap.device_token_hash, hash_token(authorization[7:].strip())):
         raise unauthorized
     return strap
+
+
+# --- dashboard session ---------------------------------------------------
+
+SESSION_COOKIE = "sb_session"
+SESSION_MAX_AGE = 7 * 24 * 3600
+
+
+def _serializer() -> URLSafeTimedSerializer:
+    return URLSafeTimedSerializer(get_settings().session_secret, salt="dashboard-session")
+
+
+def make_session_token() -> str:
+    return _serializer().dumps({"u": "owner"})
+
+
+def session_valid(token: str | None) -> bool:
+    if not token:
+        return False
+    try:
+        _serializer().loads(token, max_age=SESSION_MAX_AGE)
+    except BadSignature:
+        return False
+    return True
+
+
+def require_dashboard(request: Request) -> None:
+    if not session_valid(request.cookies.get(SESSION_COOKIE)):
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "login required")

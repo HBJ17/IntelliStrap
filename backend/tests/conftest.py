@@ -62,3 +62,37 @@ def register(client):
         data["headers"] = {"Authorization": f"Bearer {data['device_token']}", "X-Device-Id": device_id}
         return data
     return _register
+
+
+@pytest.fixture
+def auth_client(client):
+    r = client.post("/api/login", json={"password": "test-password"})
+    assert r.status_code == 200
+    return client
+
+
+@pytest.fixture
+def demo(session):
+    """Owner/shop/catalog with four claimed straps that last reported at T0."""
+    from app.models import Item, Owner, Shop, Strap, StrapState
+    from app.security import hash_token
+
+    shop = Shop(name="Corner Shop", whatsapp_number="+919000000002", opted_in=True)
+    owner = Owner(name="Asha", whatsapp_number="+919000000001", list_threshold_inr=400, shop=shop)
+    session.add_all([shop, owner])
+    prices = {"Rice": 60, "Toor dal": 150, "Poha": 90, "Sago": 110, "Sugar": 55, "Saffron": None}
+    items = {name: Item(name=name, unit="kg", pack_size="1 kg", price_inr=p) for name, p in prices.items()}
+    session.add_all(items.values())
+    session.flush()
+    straps = {}
+    for n, name in enumerate(["Rice", "Toor dal", "Poha", "Sago"], start=1):
+        device_id = f"sb-DEMO{n:08d}"
+        token = f"token-{n}"
+        session.add(Strap(device_id=device_id, owner_id=owner.id, display_name=f"{name} jar",
+                          item_id=items[name].id, device_token_hash=hash_token(token), state=StrapState.OK,
+                          state_since=T0, last_seen=T0, baseline=800.0, gap=35.0, rssi=-50))
+        straps[name] = {"device_id": device_id,
+                        "headers": {"Authorization": f"Bearer {token}", "X-Device-Id": device_id}}
+    session.commit()
+    return {"owner_id": owner.id, "shop_id": shop.id, "items": {k: v.id for k, v in items.items()},
+            "straps": straps}

@@ -63,3 +63,61 @@ class DeviceEventResponse(BaseModel):
 
 class CommandsResponse(BaseModel):
     commands: list[str]
+
+
+# --- dashboard -------------------------------------------------------------
+
+E164 = r"^(\+[1-9]\d{6,14})?$"  # empty string = not set yet
+
+
+class LoginRequest(BaseModel):
+    password: str = Field(max_length=200)
+
+
+class ClaimRequest(BaseModel):
+    claim_code: str = Field(min_length=6, max_length=6)
+    display_name: str = Field(min_length=1, max_length=80)
+    item_id: int | None = None
+
+
+class StrapPatch(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    display_name: str | None = Field(default=None, min_length=1, max_length=80)
+    item_id: int | None = None
+
+
+class ItemIn(BaseModel):
+    name: str = Field(min_length=1, max_length=80)
+    unit: str = Field(default="", max_length=20)
+    pack_size: str = Field(default="", max_length=40)
+    price_inr: int | None = Field(default=None, ge=0, le=1_000_000)
+
+
+class OwnerSettings(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=80)
+    whatsapp_number: str | None = Field(default=None, pattern=E164)
+    list_threshold_inr: int | None = Field(default=None, ge=1, le=1_000_000)
+
+
+class ShopSettings(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=80)
+    whatsapp_number: str | None = Field(default=None, pattern=E164)
+    opted_in: bool | None = None
+
+
+class GlobalSettings(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    hold_minutes: int | None = Field(default=None, ge=0, le=24 * 60)
+    reminder_hours: int | None = Field(default=None, ge=1, le=24 * 7)
+    expiry_days: int | None = Field(default=None, ge=1, le=60)
+    offline_minutes: int | None = Field(default=None, ge=1, le=24 * 60)
+    event_retention_days: int | None = Field(default=None, ge=1, le=3650)
+    drift_throttle_minutes: int | None = Field(default=None, ge=1, le=24 * 60)
+    refill_reminder_days: int | None = Field(default=None, ge=1, le=60)
+    fill_gap_full: int | None = Field(default=None, ge=1, le=100_000)
+
+
+class SettingsUpdate(BaseModel):
+    owner: OwnerSettings | None = None
+    shop: ShopSettings | None = None
+    global_: GlobalSettings | None = Field(default=None, alias="global")
