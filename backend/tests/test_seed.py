@@ -13,8 +13,8 @@ def test_seed_creates_demo_data(tmp_path, monkeypatch, session):
     owner = session.query(Owner).one()
     assert owner.list_threshold_inr == 400 and owner.shop.opted_in
     prices = {i.name: i.price_inr for i in session.query(Item)}
-    assert prices["Rice"] + prices["Toor dal"] + prices["Poha"] + prices["Sago"] == 410
-    straps = session.query(Strap).all()
-    assert len(straps) == 4 and all(s.owner_id == owner.id and s.item_id for s in straps)
+    assert prices["Rice"] == 60 and len(prices) == 6
+    [strap] = session.query(Strap).all()  # a single demo jar
+    assert strap.owner_id == owner.id and strap.item.name == "Rice"
     store = json.loads((tmp_path / "store.json").read_text())
-    assert set(store) == {s.device_id for s in straps}
+    assert set(store) == {strap.device_id}

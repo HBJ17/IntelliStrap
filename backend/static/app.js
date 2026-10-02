@@ -68,13 +68,9 @@ function signal(rssi) {
   return `${rssi} dBm (${q})`;
 }
 
-function itemOptions(selectedId, includeNone = true) {
-  const opts = includeNone ? [`<option value="">— no label —</option>`] : [];
-  for (const item of state.items) {
-    const price = item.price_inr == null ? "no price" : `₹${item.price_inr}`;
-    opts.push(`<option value="${item.id}" ${item.id === selectedId ? "selected" : ""}>${esc(item.name)} (${price})</option>`);
-  }
-  return opts.join("");
+function renderLabelOptions() {
+  // Suggestions for every free-text contents-label field.
+  $("#label-options").innerHTML = state.items.map((i) => `<option value="${esc(i.name)}"></option>`).join("");
 }
 
 function editing(section) {
@@ -118,7 +114,7 @@ views.straps = {
     if (editing(section)) return;
     const grid = $("#strap-grid");
     if (!state.straps.length) {
-      grid.innerHTML = `<div class="empty">No straps yet. <a href="#claim">Claim one</a>.</div>`;
+      grid.innerHTML = `<div class="empty">No straps yet. <a href="#claim">Add one</a>.</div>`;
       return;
     }
     grid.innerHTML = state.straps.map((s) => {
@@ -129,7 +125,7 @@ views.straps = {
         <div class="card-head">
           <div>
             <div class="card-title">${esc(s.display_name || s.device_id)}</div>
-            <div class="muted">${esc(s.item ? s.item.name : "No contents label")}</div>
+            <div class="muted">${esc(s.item ? s.item.name : "No contents label")}${s.item && s.item.price_inr == null ? ` · <a class="pill warn" href="#settings">enter price</a>` : ""}</div>
           </div>
           <span class="pill ${esc(s.status)}">${esc(label)}</span>
         </div>
@@ -141,7 +137,15 @@ views.straps = {
           <button class="small save-name">Rename</button>
         </div>
         <div class="row">
-          <select class="item-select" aria-label="Contents" style="flex:1">${itemOptions(s.item?.id)}</select>
+          <input class="label-input" list="label-options" value="${esc(s.item?.name || "")}" maxlength="80"
+                 placeholder="Contents, e.g. Rice" aria-label="Contents label" style="flex:1">
+          <input class="price-input price" type="number" min="0" value="${s.item?.price_inr ?? ""}"
+                 placeholder="₹ price" aria-label="Price in rupees">
+          <button class="small save-label">Save</button>
+        </div>
+        <div class="row">
+          <button class="small danger delete-strap">Delete</button>
+          <span class="spacer"></span>
           <button class="small recal">Recalibrate</button>
         </div>
       </div>`;
@@ -154,7 +158,21 @@ $("#strap-grid").addEventListener("click", async (e) => {
   if (!card) return;
   const id = card.dataset.id;
   try {
-    if (e.target.classList.contains("save-name")) {
+    if (e.target.classList.contains("save-label")) {
+      const label = card.querySelector(".label-input").value.trim();
+      const price = readPrice(card.querySelector(".price-input"));
+      if (label && price === null && !confirm(`Save "${label}" without a price? It won't count towards the ₹ threshold until you add one.`)) return;
+      await api("PATCH", `/api/straps/${id}`, label ? { label, price_inr: price } : { label });
+      e.target.blur();
+      toast(!label ? "Label cleared" : price === null ? "Label saved (no price yet)" : `Label saved: ${label} ₹${price}`);
+      state.items = await api("GET", "/api/items");
+      renderLabelOptions();
+    } else if (e.target.classList.contains("delete-strap")) {
+      const name = card.querySelector(".card-title").textContent;
+      if (!confirm(`Delete "${name}"? Its history is removed. If the strap is still switched on it shows a new claim code on its serial log, so you can add it again.`)) return;
+      await api("DELETE", `/api/straps/${id}`);
+      toast(`${name} deleted`);
+    } else if (e.target.classList.contains("save-name")) {
       await api("PATCH", `/api/straps/${id}`, { display_name: card.querySelector(".rename").value });
       e.target.blur();
       toast("Renamed");
@@ -171,37 +189,39 @@ $("#strap-grid").addEventListener("click", async (e) => {
   }
 });
 
-$("#strap-grid").addEventListener("change", async (e) => {
-  if (!e.target.classList.contains("item-select")) return;
-  const id = e.target.closest(".card").dataset.id;
-  const value = e.target.value ? Number(e.target.value) : null;
-  try {
-    await api("PATCH", `/api/straps/${id}`, { item_id: value });
-    e.target.blur();
-    toast("Contents label updated");
-    await views.straps.load();
-  } catch (err) {
-    toast(err.message);
-  }
+function readPrice(input) {
+  const v = input.value.trim();
+  return v === "" ? null : Number(v);
+}
+
+// Typing a known label fills in its catalog price (still editable).
+document.addEventListener("input", (e) => {
+  if (!e.target.matches(".label-input, #claim-item")) return;
+  const item = state.items.find((i) => i.name.toLowerCase() === e.target.value.trim().toLowerCase());
+  const price = e.target.id === "claim-item" ? $("#claim-price") : e.target.parentElement.querySelector(".price-input");
+  if (item && price) price.value = item.price_inr ?? "";
 });
 
 views.claim = {
   async load() {
-    if (!editing($("#view-claim"))) $("#claim-item").innerHTML = itemOptions(null);
+    state.items = await api("GET", "/api/items");
+    renderLabelOptions();
   },
 };
 
 $("#claim-form").addEventListener("submit", async (e) => {
   e.preventDefault();
   try {
-    const item = $("#claim-item").value;
     await api("POST", "/api/straps/claim", {
       claim_code: $("#claim-code").value.trim().toUpperCase(),
       display_name: $("#claim-name").value.trim(),
-      item_id: item ? Number(item) : null,
+      label: $("#claim-item").value.trim(),
+      price_inr: $("#claim-item").value.trim() ? readPrice($("#claim-price")) : null,
     });
+    state.items = await api("GET", "/api/items");
+    renderLabelOptions();
     e.target.reset();
-    toast("Strap claimed");
+    toast("Strap added");
     location.hash = "#straps";
   } catch (err) {
     toast(err.message);
@@ -233,6 +253,7 @@ views.settings = {
     if (editing($("#view-settings"))) return;
     const [s, items] = await Promise.all([api("GET", "/api/settings"), api("GET", "/api/items")]);
     state.items = items;
+    renderLabelOptions();
     $("#s-owner-name").value = s.owner.name;
     $("#s-owner-wa").value = s.owner.whatsapp_number;
     $("#s-threshold").value = s.owner.list_threshold_inr;
@@ -537,6 +558,7 @@ async function boot() {
   document.body.dataset.mode = state.me.messaging_mode;
   $("#sim").classList.toggle("hidden", state.me.messaging_mode !== "simulator");
   state.items = await api("GET", "/api/items");
+  renderLabelOptions();
   route();
 }
 

@@ -114,3 +114,86 @@ def test_catalog_crud(auth_client, demo):
     assert r.json()["price_inr"] == 330
     assert auth_client.delete(f"/api/items/{item_id}").status_code == 200
     assert all(i["name"] != "Ghee" for i in auth_client.get("/api/items").json())
+
+
+def test_edit_label_free_text(auth_client, demo, session):
+    from app.models import Item
+    rice = demo["straps"]["Rice"]["device_id"]
+    # Existing catalog item, matched case-insensitively.
+    r = auth_client.patch(f"/api/straps/{rice}", json={"label": "  sugar "})
+    assert r.json()["item"]["id"] == demo["items"]["Sugar"]
+    # New label is added to the catalog without a price (never counted as Rs 0).
+    r = auth_client.patch(f"/api/straps/{rice}", json={"label": "Basmati  rice"})
+    assert r.json()["item"]["name"] == "Basmati rice" and r.json()["item"]["price_inr"] is None
+    assert session.query(Item).filter(Item.name == "Basmati rice").count() == 1
+    auth_client.patch(f"/api/straps/{rice}", json={"label": "basmati rice"})
+    assert session.query(Item).filter(Item.name.ilike("basmati rice")).count() == 1
+    # Empty label clears it.
+    assert auth_client.patch(f"/api/straps/{rice}", json={"label": ""}).json()["item"] is None
+
+
+def test_claim_with_new_label(auth_client, register, demo):
+    dev = register("sb-NEW000000003")
+    r = auth_client.post("/api/straps/claim", json={"claim_code": dev["claim_code"], "display_name": "Tin",
+                                                    "label": "Jaggery"})
+    assert r.status_code == 200 and r.json()["item"]["name"] == "Jaggery"
+
+
+def test_renaming_catalog_item_renames_label_everywhere(auth_client, demo):
+    auth_client.put(f"/api/items/{demo['items']['Toor dal']}", json={"name": "Arhar dal", "price_inr": 150})
+    names = {s["display_name"]: s["item"]["name"] for s in auth_client.get("/api/straps").json()}
+    assert names["Toor dal jar"] == "Arhar dal"
+
+
+def test_set_label_with_price(auth_client, demo, session):
+    from app.models import Item
+    rice = demo["straps"]["Rice"]["device_id"]
+    r = auth_client.patch(f"/api/straps/{rice}", json={"label": "Basmati rice", "price_inr": 140})
+    assert r.json()["item"] == {**r.json()["item"], "name": "Basmati rice", "price_inr": 140}
+    # Changing only the price updates the catalog item.
+    r = auth_client.patch(f"/api/straps/{rice}", json={"price_inr": 150})
+    assert r.json()["item"]["price_inr"] == 150
+    assert session.query(Item).filter_by(name="Basmati rice").one().price_inr == 150
+    # A price without a label is refused.
+    auth_client.patch(f"/api/straps/{rice}", json={"label": ""})
+    assert auth_client.patch(f"/api/straps/{rice}", json={"price_inr": 10}).status_code == 422
+
+
+def test_claim_with_label_and_price(auth_client, register, demo):
+    dev = register("sb-NEW000000004")
+    r = auth_client.post("/api/straps/claim", json={"claim_code": dev["claim_code"], "display_name": "Tea tin",
+                                                    "label": "Masala tea", "price_inr": 180})
+    assert r.json()["item"]["price_inr"] == 180
+
+
+def test_price_fills_unpriced_list_row(auth_client, demo):
+    auth_client.post("/api/list/items", json={"item_id": demo["items"]["Saffron"]})
+    sago = demo["straps"]["Sago"]["device_id"]
+    auth_client.patch(f"/api/straps/{sago}", json={"label": "Saffron", "price_inr": 250})
+    data = auth_client.get("/api/list").json()
+    assert data["missing_prices"] == [] and data["total_inr"] == 250
+
+
+def test_delete_strap_and_add_it_back(auth_client, demo, client, session):
+    from app.models import Event, ListItem, ListStatus, Strap
+    rice = demo["straps"]["Rice"]
+    client.post("/api/device/events", headers=rice["headers"], json={"type": "state_change", "payload": {"state": "LOW"}})
+    auth_client.post("/api/list/items", json={"strap_id": rice["device_id"]})
+
+    assert auth_client.delete(f"/api/straps/{rice['device_id']}").status_code == 200
+    session.expire_all()
+    assert session.get(Strap, rice["device_id"]) is None
+    assert session.query(Event).count() == 0
+    [row] = session.query(ListItem).all()
+    assert row.status == ListStatus.cancelled and row.strap_id is None
+    assert all(s["device_id"] != rice["device_id"] for s in auth_client.get("/api/straps").json())
+
+    # The strap's old token stops working; it registers again and gets a new claim code.
+    r = client.post("/api/device/events", headers=rice["headers"], json={"type": "heartbeat", "payload": {}})
+    assert r.status_code == 401
+    reg = client.post("/api/device/register", json={"device_id": rice["device_id"],
+                                                      "provision_secret": "test-provision"}).json()
+    r = auth_client.post("/api/straps/claim", json={"claim_code": reg["claim_code"], "display_name": "Rice again",
+                                                    "label": "Rice"})
+    assert r.status_code == 200
+    assert auth_client.delete("/api/straps/sb-NOPE00000000").status_code == 404

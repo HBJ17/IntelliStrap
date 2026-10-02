@@ -78,12 +78,17 @@ class ClaimRequest(BaseModel):
     claim_code: str = Field(min_length=6, max_length=6)
     display_name: str = Field(min_length=1, max_length=80)
     item_id: int | None = None
+    # Free-text contents label; matched to the catalog by name, or added to it.
+    label: str | None = Field(default=None, max_length=80)
+    price_inr: int | None = Field(default=None, ge=0, le=1_000_000)  # sets the label's catalog price
 
 
 class StrapPatch(BaseModel):
     model_config = ConfigDict(extra="forbid")
     display_name: str | None = Field(default=None, min_length=1, max_length=80)
     item_id: int | None = None
+    label: str | None = Field(default=None, max_length=80)
+    price_inr: int | None = Field(default=None, ge=0, le=1_000_000)
 
 
 class ItemIn(BaseModel):

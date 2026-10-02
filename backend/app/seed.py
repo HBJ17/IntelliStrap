@@ -1,8 +1,8 @@
 """Demo data: `python -m app.seed [--reset]`.
 
-Creates one owner, one opted-in shop, a priced catalog and four straps pre-claimed to
-Rice, Toor dal, Poha and Sago. Device tokens are written to the repo's .fake_straps.json
-so tools/fake_strap.py can drive the seeded straps straight away.
+Creates one owner, one opted-in shop, a priced catalog and one strap pre-claimed to Rice.
+Its device token is written to the repo's .fake_straps.json so tools/fake_strap.py can drive
+it straight away. Add more straps from the dashboard (Add strap).
 """
 import argparse
 import json
@@ -25,9 +25,6 @@ CATALOG = [
 
 STRAPS = [
     ("sb-DEMO00000001", "Rice jar", "Rice"),
-    ("sb-DEMO00000002", "Dal jar", "Toor dal"),
-    ("sb-DEMO00000003", "Poha jar", "Poha"),
-    ("sb-DEMO00000004", "Sago jar", "Sago"),
 ]
 
 
@@ -42,7 +39,9 @@ def seed(reset: bool = False) -> bool:
 
     with db.session_scope() as session:
         if session.query(Owner).first() is not None:
-            print("Database already has an owner; nothing to do (use --reset to start over).")
+            print("Demo data is already loaded, so there is nothing to do (this is not an error).\n"
+                  "Start the server with:  uvicorn app.main:app --host 0.0.0.0 --port 8000\n"
+                  "To wipe ALL data and reload the demo instead, run:  python -m app.seed --reset")
             return False
 
         shop = Shop(name="Sharma General Store", whatsapp_number="+910000000002", opted_in=True)
@@ -68,7 +67,7 @@ def seed(reset: bool = False) -> bool:
     for device_id, token in tokens.items():
         store[device_id] = {"device_token": token, "claim_code": None}
     FAKE_STRAP_STORE.write_text(json.dumps(store, indent=2))
-    print(f"Seeded owner, shop, {len(CATALOG)} items and {len(STRAPS)} straps.")
+    print(f"Seeded owner, shop, {len(CATALOG)} items and {len(STRAPS)} strap(s).")
     print(f"Device tokens for the demo straps saved to {FAKE_STRAP_STORE}")
     return True
 

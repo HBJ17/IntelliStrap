@@ -85,6 +85,28 @@ def get_item_or_404(db: Session, item_id: int) -> Item:
     return item
 
 
+def resolve_label(db: Session, item_id: int | None, label: str | None) -> int | None:
+    """Contents label from a catalog id or free text; empty text clears the label."""
+    if label is not None:
+        return rules.find_or_create_item(db, label).id if label.strip() else None
+    if item_id is not None:
+        get_item_or_404(db, item_id)
+    return item_id
+
+
+def apply_price(db: Session, strap: Strap, price_inr: int | None) -> None:
+    """Price entered next to the label = the catalog price of that item."""
+    if price_inr is None:
+        return
+    db.flush()
+    item = db.get(Item, strap.item_id) if strap.item_id else None
+    if item is None:
+        raise HTTPException(422, "set a contents label before its price")
+    item.price_inr = price_inr
+    db.flush()
+    rules.reprice_pending(db, item, clock.now())
+
+
 # --- straps ------------------------------------------------------------------
 
 @router.get("/straps")
@@ -104,12 +126,11 @@ def claim_strap(body: ClaimRequest, db: Session = Depends(get_db)):
                                            Strap.owner_id.is_(None))).first()
     if strap is None:
         raise HTTPException(404, "no unclaimed strap with that code")
-    if body.item_id is not None:
-        get_item_or_404(db, body.item_id)
     strap.owner_id = owner.id
     strap.display_name = body.display_name.strip()
-    strap.item_id = body.item_id
+    strap.item_id = resolve_label(db, body.item_id, body.label)
     strap.claim_code = None
+    apply_price(db, strap, body.price_inr)
     db.commit()
     return strap_out(strap, clock.now(), settings_store.get_all(db))
 
@@ -121,13 +142,24 @@ def patch_strap(device_id: str, body: StrapPatch, db: Session = Depends(get_db))
         if not body.display_name:
             raise HTTPException(422, "display_name cannot be empty")
         strap.display_name = body.display_name.strip()
-    if "item_id" in body.model_fields_set:
-        if body.item_id is not None:
-            get_item_or_404(db, body.item_id)
-        strap.item_id = body.item_id
+    if "label" in body.model_fields_set:
+        strap.item_id = resolve_label(db, None, body.label)
+    elif "item_id" in body.model_fields_set:
+        strap.item_id = resolve_label(db, body.item_id, None)
+    if body.price_inr is not None:
+        apply_price(db, strap, body.price_inr)
     db.commit()
     db.refresh(strap)
     return strap_out(strap, clock.now(), settings_store.get_all(db))
+
+
+@router.delete("/straps/{device_id}")
+def delete_strap(device_id: str, db: Session = Depends(get_db)):
+    """Remove a strap and its history. If it is still powered it registers again as a new,
+    unclaimed strap (fresh claim code on its serial log), so it can be added back."""
+    rules.delete_strap(db, owned_strap(db, device_id))
+    db.commit()
+    return {"ok": True}
 
 
 @router.post("/straps/{device_id}/recalibrate")

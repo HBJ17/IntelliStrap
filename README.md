@@ -37,28 +37,36 @@ pip install -e "backend[dev]"
 copy .env.example .env
 ```
 
-Edit `.env` and set `DASHBOARD_PASSWORD`. For the demo, also set `DEV_HOLD_SECONDS=10`. Then run the following from `backend/`:
+Edit `.env` and set `DASHBOARD_PASSWORD`. For the demo, also set `DEV_HOLD_SECONDS=10`.
+
+Load the demo data. **Do this once only.** Running it again just reports that the data is already loaded:
 
 ```bash
 python -m app.seed
 ```
+
+Start the server. Do this every time; it works from the project root with the venv active:
+
 ```bash
-uvicorn app.main:app --reload
+uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
-Open http://localhost:8000 and sign in. `app.seed` creates one owner, an opted-in shop, a priced catalog (Rice ₹60, Toor dal ₹150, Poha ₹90, Sago ₹110, Sugar ₹55, Tea ₹120) and four straps (`sb-DEMO00000001` to `sb-DEMO00000004`) already claimed for Rice, Toor dal, Poha and Sago. Their tokens are saved in `.fake_straps.json`, so `fake_strap.py` can drive them straight away.
+Press Ctrl+C to stop it.
 
-### Demo script: four jars LOW → list → Order → shop receives it once
+Open http://localhost:8000 and sign in. `app.seed` creates one owner, an opted-in shop, a priced catalog (Rice ₹60, Toor dal ₹150, Poha ₹90, Sago ₹110, Sugar ₹55, Tea ₹120) and **one** strap, `sb-DEMO00000001` ("Rice jar", labelled Rice). Its token is saved in `.fake_straps.json`, so `fake_strap.py` can drive it straight away. Add more straps with **Add strap** and remove them with **Delete** on a strap card.
+
+### Demo script: jar LOW → list → Order → shop receives it once
 
 1. Open the **Shopping list** tab and the **WhatsApp simulator** panel (bottom right).
-2. Make the four jars report LOW (from the repo root):
+2. Make the jar report LOW (from the repo root):
    ```bash
    python tools/fake_strap.py low --id sb-DEMO00000001
    ```
-   Repeat for `sb-DEMO00000002`, `…03` and `…04`. You can also use **Goes LOW** in the simulator panel.
-3. Wait out the hold time (`DEV_HOLD_SECONDS`), or click **Skip hold time**. The list reaches ₹410, which is at least ₹400, so exactly **one** order is created. The owner's message, with **Order** and **Not now** buttons, appears in the simulator.
-4. Click **Order**. The shop message appears once, followed by "Sent to Sharma General Store.". Clicking Order again only produces "already handled".
-5. Try **Refilled (OK)** on a jar to see a pending row cleared, or **Not now** to see the rows return to the list.
+   You can also use **Goes LOW** in the simulator panel.
+3. Wait out the hold time (`DEV_HOLD_SECONDS`), or click **Skip hold time**. Rice (₹60) appears on the list.
+4. The list is sent automatically once it reaches the ₹400 threshold. With one jar, either press **Send now**, or lower the threshold in **Settings** (for example to ₹50) before step 2. The owner's message, with **Order** and **Not now** buttons, appears in the simulator.
+5. Click **Order**. The shop message appears once, followed by "Sent to Sharma General Store.". Clicking Order again only produces "already handled".
+6. Try **Refilled (OK)** to see a pending row cleared, or **Not now** to see the row return to the list.
 
 ### fake_strap.py
 
@@ -128,9 +136,9 @@ Every webhook is checked against `X-Twilio-Signature` before anything else runs.
    ```bash
    python tools/provision.py --mac A1:B2:C3:D4:E5:F6 --url https://smartband.example.com
    ```
-2. **First boot.** With no Wi-Fi in flash, the strap opens a hotspot named `SmartBand-XXXX`. Join it and fill in the Wi-Fi name, password and backend URL. The strap saves these to flash and reboots.
+2. **First boot.** With no Wi-Fi in flash, the strap opens a hotspot named `IntelliStrap-XXXX`. Join it and fill in the Wi-Fi name, password and backend URL. The strap saves these to flash and reboots.
 3. **Registration.** The strap registers with the backend, stores its token in flash, and prints its claim code to Serial. If it was pre-registered, the claim code is the same one as on the sticker.
-4. **Claiming.** In the dashboard, go to **Claim a strap**, enter the code, name the jar and pick its contents.
+4. **Adding.** In the dashboard, go to **Add strap**, enter the code, name the jar, and type its contents label and price.
 5. **Reporting.** The strap sends `state_change` events (after the existing 5-count confirmation), plus a heartbeat about every 3 minutes and throttled baseline-drift events. A strap that is silent for 15 minutes shows as **Offline** (never as its last state), and the owner gets one WhatsApp alert.
 6. **Button.** A short press recalibrates the strap. Holding it for 10 s performs a factory reset, which wipes Wi-Fi, token and baseline.
 

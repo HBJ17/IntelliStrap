@@ -3,13 +3,13 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>SmartBand Pantry Monitor</title>
+  <title>IntelliStrap</title>
   <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
   <div id="login" class="hidden">
     <form class="card" id="login-form">
-      <h2>SmartBand Pantry Monitor</h2>
+      <h2>IntelliStrap</h2>
       <label for="login-password">Dashboard password</label>
       <input id="login-password" type="password" autocomplete="current-password" required>
       <div class="row" style="margin-top:12px"><button class="primary" type="submit">Sign in</button></div>
@@ -18,11 +18,11 @@
   </div>
 
   <header>
-    <h1>SmartBand <span>Pantry Monitor</span></h1>
+    <h1>IntelliStrap</h1>
     <nav id="nav">
       <a href="#straps" data-view="straps">Straps</a>
       <a href="#list" data-view="list">Shopping list</a>
-      <a href="#claim" data-view="claim">Claim a strap</a>
+      <a href="#claim" data-view="claim">Add strap</a>
       <a href="#history" data-view="history">History</a>
       <a href="#settings" data-view="settings">Settings</a>
     </nav>
@@ -63,16 +63,19 @@
     </section>
 
     <section id="view-claim" data-view="claim" class="hidden">
-      <h2>Claim a strap</h2>
+      <h2>Add a strap</h2>
       <form class="card" id="claim-form" style="max-width:420px">
-        <p class="muted">A new strap prints a 6-character claim code on its serial log (and sticker) on first boot.</p>
+        <p class="muted">Switch the new strap on and connect it to Wi-Fi. It shows a 6-character claim code on its
+          serial log (or sticker). Enter it here.</p>
         <label for="claim-code">Claim code</label>
         <input id="claim-code" maxlength="6" required autocapitalize="characters" style="text-transform:uppercase">
         <label for="claim-name">Jar name</label>
         <input id="claim-name" maxlength="80" required placeholder="e.g. Rice jar">
-        <label for="claim-item">Contents</label>
-        <select id="claim-item"></select>
-        <div class="row" style="margin-top:12px"><button class="primary" type="submit">Claim strap</button></div>
+        <label for="claim-item">Contents label</label>
+        <input id="claim-item" list="label-options" maxlength="80" placeholder="e.g. Rice (pick or type a new one)">
+        <label for="claim-price">Price (₹)</label>
+        <input id="claim-price" type="number" min="0" placeholder="e.g. 60">
+        <div class="row" style="margin-top:12px"><button class="primary" type="submit">Add strap</button></div>
       </form>
     </section>
 
@@ -111,6 +114,7 @@
 
       <div class="card">
         <h3>Catalog and prices</h3>
+        <p class="muted">Renaming an item here renames that label on every jar that uses it.</p>
         <div class="table-wrap">
           <table>
             <thead><tr><th>Item</th><th>Unit</th><th>Pack</th><th>Price (₹)</th><th></th></tr></thead>
@@ -150,6 +154,7 @@
     </div>
   </details>
 
+  <datalist id="label-options"></datalist>
   <div id="toast" role="status"></div>
   <script src="/static/app.js"></script>
 </body>

@@ -26,9 +26,9 @@ String htmlEscape(const String& in) {
 String formPage(const char* defaultUrl) {
   String page =
       "<!doctype html><html><head><meta name=viewport content='width=device-width,initial-scale=1'>"
-      "<title>SmartBand setup</title><style>body{font-family:sans-serif;max-width:360px;margin:24px auto;"
+      "<title>IntelliStrap setup</title><style>body{font-family:sans-serif;max-width:360px;margin:24px auto;"
       "padding:0 16px}input{width:100%;padding:8px;margin:4px 0 12px;box-sizing:border-box}"
-      "button{padding:10px 16px}</style></head><body><h2>SmartBand setup</h2>"
+      "button{padding:10px 16px}</style></head><body><h2>IntelliStrap setup</h2>"
       "<form method=post action=/save>"
       "<label>Wi-Fi name<input name=ssid required maxlength=32></label>"
       "<label>Wi-Fi password<input name=pass type=password maxlength=64></label>"
@@ -46,7 +46,7 @@ void runSetupPortal(const char* defaultBackendUrl) {
   WebServer server(80);
   DNSServer dns;
 
-  String apName = "SmartBand-" + WiFi.macAddress().substring(12);
+  String apName = "IntelliStrap-" + WiFi.macAddress().substring(12);
   apName.replace(":", "");
   WiFi.mode(WIFI_AP);
   WiFi.softAP(apName.c_str(), SETUP_AP_PASSWORD);

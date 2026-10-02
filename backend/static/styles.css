@@ -135,6 +135,7 @@ input, select {
   min-width: 0;
 }
 input[type=checkbox] { width: auto; }
+input.price { width: 90px; flex: none; }
 input:focus, select:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
 
 button {
@@ -239,6 +240,9 @@ td input { width: 100%; }
 
 @media (max-width: 600px) {
   main { padding: 12px; }
+  header h1 { flex: 1; }
+  nav { order: 3; flex-basis: 100%; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  nav a { white-space: nowrap; }
   .timeline li { flex-direction: column; gap: 2px; }
   .timeline .dot { display: none; }
 }

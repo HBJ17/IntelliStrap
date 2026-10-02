@@ -2,13 +2,13 @@
 import logging
 from datetime import datetime, timedelta
 
-from sqlalchemy import exists, select, update
+from sqlalchemy import delete, exists, func, select, update
 from sqlalchemy.orm import Session
 
 from . import settings_store
 from .config import get_settings
 from .messaging import Messenger, MessagingError, ParsedReply, get_messenger
-from .models import (OPEN_LIST_STATUSES, Item, ListItem, ListStatus, Order, OrderStatus, Owner, Strap,
+from .models import (OPEN_LIST_STATUSES, Event, Item, ListItem, ListStatus, Order, OrderStatus, Owner, Strap,
                      StrapState)
 
 log = logging.getLogger(__name__)
@@ -52,6 +52,31 @@ def hold_delta(db: Session) -> timedelta:
     if dev_seconds is not None:
         return timedelta(seconds=dev_seconds)
     return timedelta(minutes=settings_store.get_int(db, "hold_minutes"))
+
+
+# --- contents labels ---------------------------------------------------------------
+
+def find_or_create_item(db: Session, label: str) -> Item:
+    """Match a typed label to the catalog (case-insensitive); unknown labels become new, unpriced items."""
+    name = " ".join(label.split())
+    item = db.scalars(select(Item).where(func.lower(Item.name) == name.lower())).first()
+    if item is None:
+        item = Item(name=name, unit="", pack_size="", price_inr=None)
+        db.add(item)
+        db.flush()
+    return item
+
+
+def delete_strap(db: Session, strap: Strap) -> None:
+    """Pending row is cancelled; past list rows and orders are kept, just unlinked from the strap."""
+    for row in db.scalars(select(ListItem).where(ListItem.strap_id == strap.device_id)):
+        if row.status == ListStatus.pending:
+            row.status = ListStatus.cancelled
+        row.strap_id = None
+    db.flush()
+    db.execute(delete(Event).where(Event.device_id == strap.device_id))
+    db.delete(strap)
+    db.flush()
 
 
 # --- list rows -------------------------------------------------------------------
