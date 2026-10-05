@@ -51,6 +51,9 @@ Defaults taken from the spec (Section 2), plus every assumption made while build
 ### Dashboard and simulator
 - **Jar cards show state only:** no fill %, gap, baseline or dBm. The customer only wants LOW / OK. The jar drawing is drawn full for OK and nearly empty for LOW. Gap and baseline are still stored for history.
 - **Hold time is 20 seconds** (`hold_seconds`). The scheduler checks every 5 s so items join the list shortly after.
+- **Kitchen theme:** cream / clay / wood / charcoal palette with full (green), low (orange), empty (red) and offline (grey-blue) status colours, Plus Jakarta Sans and Material Symbols Rounded icons. Light only, so the dashboard looks the same on every device.
+- **Logo:** `static/logo.png` is the brand mark in the top bar and login card, and the favicon.
+- **No-cache dashboard files:** `/` and `/static/*` are sent with `Cache-Control: no-cache`, so browsers pick up a new `app.js` after an update instead of running a stale copy against the new API.
 - **Simulator panel:** a floating, collapsible panel shown only when `MESSAGING_MODE=simulator`. "Skip hold time" runs the hold check with a zero hold. `DEV_HOLD_SECONDS` also shortens the scheduler interval.
 - **`parse_webhook()`:** takes the already-parsed form dict instead of the raw request, so messengers stay synchronous and easy to test.
 
