@@ -97,12 +97,11 @@ a { color: inherit; }
 }
 .brand { display: flex; align-items: center; gap: 10px; }
 .brand-mark {
-  width: 38px; height: 38px; border-radius: var(--r-input);
-  background: var(--clay); color: #fff;
-  display: grid; place-items: center;
-  box-shadow: var(--shadow-sm);
+  display: block; flex: none; width: 40px; height: 40px;
+  border-radius: 10px; border: 1px solid var(--line);
+  object-fit: cover; box-shadow: var(--shadow-sm);
 }
-.brand-mark .ic { font-size: 22px; }
+#login .brand-mark { width: 48px; height: 48px; border-radius: 12px; }
 .brand-name { font: 800 20px/28px var(--font); color: var(--charcoal); }
 .chip {
   display: inline-flex; align-items: center; gap: 4px;
