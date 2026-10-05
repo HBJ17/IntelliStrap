@@ -10,6 +10,9 @@ os.environ.update(
     PUBLIC_BASE_URL="https://smartband.example.test",
     MESSAGING_MODE="simulator",
     TWILIO_AUTH_TOKEN="test-twilio-token",
+    TWILIO_ACCOUNT_SID="",
+    TWILIO_CONTENT_SID_OWNER="",  # tests must not pick up the developer's real .env
+    TWILIO_CONTENT_SID_SHOP="",
     DEV_HOLD_SECONDS="",
     SCHEDULER_ENABLED="false",
     MQTT_ENABLED="false",

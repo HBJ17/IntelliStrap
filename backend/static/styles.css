@@ -381,8 +381,8 @@ td input { background: var(--cream-50); height: 40px; }
 .order { padding: 14px 0; border-bottom: 1px solid var(--line); }
 .order:last-child { border-bottom: 0; }
 .order > * + * { margin-top: 4px; }
-.os-awaiting_owner, .os-confirmed { background: var(--low-bg); color: var(--low); }
-.os-sent_to_shop { background: var(--full-bg); color: var(--full); }
+.os-awaiting_owner, .os-confirmed, .os-shop_declined { background: var(--low-bg); color: var(--low); }
+.os-sent_to_shop, .os-delivery_confirmed { background: var(--full-bg); color: var(--full); }
 .os-send_failed { background: var(--empty-bg); color: var(--empty); }
 .os-cancelled, .os-expired { background: var(--offline-bg); color: var(--offline); }
 

@@ -31,6 +31,8 @@ class OrderStatus(str, enum.Enum):
     awaiting_owner = "awaiting_owner"
     confirmed = "confirmed"
     sent_to_shop = "sent_to_shop"
+    delivery_confirmed = "delivery_confirmed"  # the shop accepted the order
+    shop_declined = "shop_declined"  # the shop said it cannot deliver
     cancelled = "cancelled"
     expired = "expired"
     send_failed = "send_failed"

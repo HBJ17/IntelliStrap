@@ -91,7 +91,7 @@ def test_order_button_sends_shop_list_exactly_once(client, demo, twilio, auth_cl
     shop = to_shop(twilio)
     assert len(shop) == 1
     assert shop[0]["body"] == ("New order from Asha: Rice ×1 ₹60, Toor dal ×1 ₹150, Poha ×1 ₹90, Sago ×1 ₹110. "
-                               "Total ₹410. Please confirm delivery.")
+                               "Total ₹410. Please confirm delivery. Reply CONFIRM to accept or CANT to decline.")
     owner_texts = [m["body"] for m in twilio.sent if m["to"] == OWNER][1:]
     assert owner_texts[0] == "Sent to Corner Shop." and "already handled" in owner_texts[1]
     session.expire_all()
@@ -131,6 +131,15 @@ def test_parse_reply_variants():
     assert parse_keyword("not now.") == "not_now" and parse_keyword("ok") is None
 
 
+def test_parse_reply_swapped_template_button():
+    # Seen live: the template's button text held the pair and its id was a plain name.
+    form = {"From": OWNER, "Body": "Place order:18:yes", "ButtonText": "Place order:18:yes", "ButtonPayload": "PLACE_ORDER"}
+    reply = parse_reply_form(form)
+    assert reply.action == "order" and reply.order_id == 18 and reply.from_number == "+919000000001"
+    assert parse_reply_form({"From": OWNER, "ButtonText": "Not now:18:no"}).action == "not_now"
+    assert parse_reply_form({"From": OWNER, "Body": "call 5551234 now"}) is None
+
+
 # --- messenger implementations -----------------------------------------------------------
 
 def test_sandbox_uses_template_when_configured(demo, auth_client, session):
@@ -161,7 +170,76 @@ def test_production_sends_both_templates(client, demo, auth_client, session):
     shop = to_shop(fake)
     assert shop[0]["content_sid"] == "HXshop"
     assert json.loads(shop[0]["content_variables"]) == {
-        "1": "Asha", "2": "Rice ×1 ₹60, Toor dal ×1 ₹150, Poha ×1 ₹90, Sago ×1 ₹110", "3": "410"}
+        "1": "Asha", "2": "Rice ×1 ₹60, Toor dal ×1 ₹150, Poha ×1 ₹90, Sago ×1 ₹110", "3": "410",
+        "4": str(order.id)}  # {{4}} feeds the "Confirm delivery" button id shop:{{4}}:confirm
+
+
+SHOP = "whatsapp:+919000000002"
+
+
+def send_to_shop_via_owner(client, order):
+    assert signed_post(client, {"From": OWNER, "ButtonPayload": f"order:{order.id}:yes"}).status_code == 200
+
+
+def texts_to(fake, number):
+    return [m["body"] for m in fake.sent if m["to"] == number and "body" in m]
+
+
+def test_shop_confirms_delivery_once(client, demo, twilio, auth_client, session):
+    order = make_order(demo, auth_client, session)
+    send_to_shop_via_owner(client, order)
+    form = {"From": SHOP, "ButtonPayload": f"shop:{order.id}:confirm", "ButtonText": "Confirm delivery"}
+    assert signed_post(client, form).status_code == 200
+    assert signed_post(client, form).status_code == 200  # double tap
+    session.expire_all()
+    assert order.status == OrderStatus.delivery_confirmed
+    assert any("is confirmed" in t for t in texts_to(twilio, SHOP))
+    assert sum("will deliver it" in t for t in texts_to(twilio, OWNER)) == 1  # owner told exactly once
+    assert any("already handled" in t for t in texts_to(twilio, SHOP))
+
+
+def test_shop_confirms_with_typed_keyword(client, demo, twilio, auth_client, session):
+    order = make_order(demo, auth_client, session)
+    send_to_shop_via_owner(client, order)
+    assert signed_post(client, {"From": SHOP, "Body": "Delivered"}).status_code == 200
+    session.expire_all()
+    assert order.status == OrderStatus.delivery_confirmed
+
+
+def test_confirm_button_title_alone_works(client, demo, twilio, auth_client, session):
+    order = make_order(demo, auth_client, session)
+    send_to_shop_via_owner(client, order)
+    assert signed_post(client, {"From": SHOP, "ButtonText": "Confirm delivery", "ButtonPayload": "X"}).status_code == 200
+    session.expire_all()
+    assert order.status == OrderStatus.delivery_confirmed
+
+
+def test_only_the_orders_shop_can_confirm(client, demo, twilio, auth_client, session):
+    order = make_order(demo, auth_client, session)
+    send_to_shop_via_owner(client, order)
+    stranger = {"From": "whatsapp:+15550009999", "ButtonPayload": f"shop:{order.id}:confirm"}
+    assert signed_post(client, stranger).status_code == 200
+    session.expire_all()
+    assert order.status == OrderStatus.sent_to_shop  # unchanged
+
+
+def test_shop_cannot_confirm_before_the_owner_orders(client, demo, twilio, auth_client, session):
+    order = make_order(demo, auth_client, session)  # list sent to the owner, who has not replied yet
+    assert signed_post(client, {"From": SHOP, "ButtonPayload": f"shop:{order.id}:confirm"}).status_code == 200
+    session.expire_all()
+    assert order.status == OrderStatus.awaiting_owner
+
+
+def test_shop_reply_parsing():
+    assert parse_reply_form({"From": SHOP, "ButtonPayload": "shop:7:confirm"}).order_id == 7
+    assert parse_reply_form({"From": SHOP, "ButtonPayload": "shop:7:confirm"}).action == "shop_confirm"
+    assert parse_reply_form({"From": SHOP, "Body": "Confirm delivery"}).action == "shop_confirm"
+    assert parse_reply_form({"From": SHOP, "ButtonPayload": "shop:7:decline"}).action == "shop_decline"
+    assert parse_reply_form({"From": SHOP, "ButtonPayload": "shop:7:decline"}).order_id == 7
+    assert parse_reply_form({"From": SHOP, "ButtonText": "Can't deliver"}).action == "shop_decline"
+    assert parse_reply_form({"From": SHOP, "Body": "out of stock"}).action == "shop_decline"
+    assert parse_reply_form({"From": SHOP, "Body": "DELIVERED."}).action == "shop_confirm"
+    assert parse_keyword("done") == "shop_confirm" and parse_keyword("hello") is None
 
 
 @pytest.mark.parametrize("status,transient", [(500, True), (503, True), (429, True), (400, False)])
@@ -206,3 +284,33 @@ def test_r11_one_reminder_then_expiry(demo, auth_client, session, sim):
     # Tapping Order on an expired list does nothing.
     r = auth_client.post("/api/sim/reply", json={"order_id": order.id, "action": "order"})
     assert r.json()["outcome"] == "already_handled"
+
+
+def test_shop_declines_and_items_return_to_list(client, demo, twilio, auth_client, session):
+    order = make_order(demo, auth_client, session)
+    send_to_shop_via_owner(client, order)
+    form = {"From": SHOP, "ButtonPayload": f"shop:{order.id}:decline", "ButtonText": "Can't deliver"}
+    assert signed_post(client, form).status_code == 200
+    assert signed_post(client, form).status_code == 200  # double tap
+    session.expire_all()
+    assert order.status == OrderStatus.shop_declined
+    assert sum("can't deliver order" in t for t in texts_to(twilio, OWNER)) == 1
+    assert session.query(ListItem).filter(ListItem.status == ListStatus.pending).count() == 4  # back on the list
+    assert any("already handled" in t for t in texts_to(twilio, SHOP))
+
+
+def test_shop_typed_no_also_declines(client, demo, twilio, auth_client, session):
+    order = make_order(demo, auth_client, session)
+    send_to_shop_via_owner(client, order)
+    assert signed_post(client, {"From": SHOP, "Body": "NO"}).status_code == 200
+    session.expire_all()
+    assert order.status == OrderStatus.shop_declined
+
+
+def test_confirmed_order_cannot_be_declined_later(client, demo, twilio, auth_client, session):
+    order = make_order(demo, auth_client, session)
+    send_to_shop_via_owner(client, order)
+    signed_post(client, {"From": SHOP, "ButtonPayload": f"shop:{order.id}:confirm"})
+    signed_post(client, {"From": SHOP, "ButtonPayload": f"shop:{order.id}:decline"})
+    session.expire_all()
+    assert order.status == OrderStatus.delivery_confirmed

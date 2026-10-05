@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from . import settings_store
 from .config import get_settings
 from .messaging import Messenger, MessagingError, ParsedReply, get_messenger
-from .models import (OPEN_LIST_STATUSES, Event, Item, ListItem, ListStatus, Order, OrderStatus, Owner, Strap,
+from .models import (OPEN_LIST_STATUSES, Event, Item, ListItem, ListStatus, Order, OrderStatus, Owner, Shop, Strap,
                      StrapState)
 
 log = logging.getLogger(__name__)
@@ -285,6 +285,8 @@ def claim_order(db: Session, order: Order, new_status: OrderStatus, allowed: tup
 def handle_reply(db: Session, reply: ParsedReply, now: datetime, messenger: Messenger | None = None) -> str:
     """Owner tapped Order / Not now (or replied ORDER / NO). R14: acts once, then 'already handled'."""
     messenger = messenger or get_messenger()
+    if reply.action in ("shop_confirm", "shop_decline") or _is_shop_only_sender(db, reply.from_number):
+        return handle_shop_reply(db, reply, messenger)
     owner = None
     if reply.from_number:
         owner = db.scalars(select(Owner).where(Owner.whatsapp_number == reply.from_number)).first()
@@ -316,6 +318,53 @@ def handle_reply(db: Session, reply: ParsedReply, now: datetime, messenger: Mess
     db.flush()
     safe_text(messenger, order.owner.whatsapp_number, "OK, not ordering now. The items stay on your list.")
     return "cancelled"
+
+
+def _is_shop_only_sender(db: Session, number: str | None) -> bool:
+    """A reply from a number that is a shop's and not the owner's (the same phone can play both roles in a demo)."""
+    if not number:
+        return False
+    is_shop = db.scalars(select(Shop.id).where(Shop.whatsapp_number == number)).first() is not None
+    is_owner = db.scalars(select(Owner.id).where(Owner.whatsapp_number == number)).first() is not None
+    return is_shop and not is_owner
+
+
+def handle_shop_reply(db: Session, reply: ParsedReply, messenger: Messenger) -> str:
+    """The shopkeeper accepted or declined an order (button or typed). Acts once; only the order's own shop may."""
+    declining = reply.action in ("shop_decline", "not_now")  # a plain NO from the shop also means "can't deliver"
+    shop = None
+    if reply.from_number:
+        shop = db.scalars(select(Shop).where(Shop.whatsapp_number == reply.from_number)).first()
+    if shop is None:
+        return "unknown_sender"
+
+    if reply.order_id is not None:
+        order = db.get(Order, reply.order_id)
+        if order is None or order.shop_id != shop.id:
+            return "unknown_order"
+    else:
+        order = db.scalars(select(Order).where(Order.shop_id == shop.id, Order.status == OrderStatus.sent_to_shop)
+                           .order_by(Order.created_at.desc(), Order.id.desc())).first()
+        if order is None:
+            safe_text(messenger, shop.whatsapp_number, "There is no order waiting for your answer.")
+            return "no_open_order"
+
+    target = OrderStatus.shop_declined if declining else OrderStatus.delivery_confirmed
+    if not claim_order(db, order, target, (OrderStatus.sent_to_shop,)):
+        safe_text(messenger, shop.whatsapp_number,
+                  f"Order #{order.id} was already handled ({order.status.value.replace('_', ' ')}).")
+        return "already_handled"
+    if declining:
+        return_rows_to_pending(order)  # back on the list; the owner decides what to do next
+        db.flush()
+        safe_text(messenger, shop.whatsapp_number, f"OK, order #{order.id} is marked as not deliverable.")
+        safe_text(messenger, order.owner.whatsapp_number,
+                  f"{shop.name} can't deliver order #{order.id}. The items are back on your list.")
+        return "shop_declined"
+    db.flush()
+    safe_text(messenger, shop.whatsapp_number, f"Thanks! Order #{order.id} is confirmed.")
+    safe_text(messenger, order.owner.whatsapp_number, f"{shop.name} confirmed order #{order.id} and will deliver it.")
+    return "delivery_confirmed"
 
 
 def retry_order(db: Session, order: Order, now: datetime, messenger: Messenger | None = None) -> bool:

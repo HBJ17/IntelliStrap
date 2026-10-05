@@ -215,5 +215,11 @@ def test_recent_events_stream(auth_client, demo, client):
 
 
 def test_dashboard_files_are_revalidated(client):
-    for path in ("/", "/static/app.js"):
+    for path in ("/", "/admin", "/static/app.js", "/static/home/app.js"):
         assert client.get(path).headers["cache-control"] == "no-cache"
+
+
+def test_home_screen_and_technician_dashboard_are_both_served(client):
+    home, admin = client.get("/"), client.get("/admin")
+    assert home.status_code == 200 and "Kitchen Pantry" in home.text and "/static/home/app.js" in home.text
+    assert admin.status_code == 200 and "Live Jar View" in admin.text

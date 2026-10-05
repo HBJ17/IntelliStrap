@@ -58,7 +58,8 @@ def refill_reminders(db: Session, now: datetime, messenger: Messenger | None = N
     rows = db.scalars(
         select(ListItem).join(Order, ListItem.order_id == Order.id).join(Strap, ListItem.strap_id == Strap.device_id)
         .where(ListItem.status == ListStatus.ordered, ListItem.refill_reminder_sent_at.is_(None),
-               Order.status == OrderStatus.sent_to_shop, Order.sent_to_shop_at <= cutoff,
+               Order.status.in_((OrderStatus.sent_to_shop, OrderStatus.delivery_confirmed)),
+               Order.sent_to_shop_at <= cutoff,
                Strap.state == StrapState.LOW)
     ).all()
     for row in rows:

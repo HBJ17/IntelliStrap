@@ -56,6 +56,11 @@ def create_app(*, init_database: bool = True) -> FastAPI:
 
     @app.get("/", include_in_schema=False)
     def index():
+        return FileResponse(STATIC_DIR / "home" / "index.html", headers=NO_CACHE)
+
+    @app.get("/admin", include_in_schema=False)
+    def admin():
+        # The technician dashboard (live stream, history, simulator).
         return FileResponse(STATIC_DIR / "index.html", headers=NO_CACHE)
 
     return app

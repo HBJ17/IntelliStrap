@@ -531,6 +531,8 @@ const ORDER_LABELS = {
   awaiting_owner: "Waiting for owner",
   confirmed: "Sending to shop",
   sent_to_shop: "Sent to shop",
+  delivery_confirmed: "Shop confirmed",
+  shop_declined: "Shop can't deliver",
   cancelled: "Not now",
   expired: "Expired",
   send_failed: "Unsent",
