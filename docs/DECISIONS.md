@@ -49,7 +49,8 @@ Defaults taken from the spec (Section 2), plus every assumption made while build
 - **Offline alerts:** the owner gets one WhatsApp text when a claimed strap goes silent for `offline_minutes`. `straps.offline_alerted_at` records it, and the next event clears it.
 
 ### Dashboard and simulator
-- **Fill bar:** shows `gap / fill_gap_full` (new setting, default 40). The firmware's gap scale is not in the spec, so tune this per strap type. It is display only.
+- **Jar cards show state only:** no fill %, gap, baseline or dBm. The customer only wants LOW / OK. The jar drawing is drawn full for OK and nearly empty for LOW. Gap and baseline are still stored for history.
+- **Hold time is 20 seconds** (`hold_seconds`). The scheduler checks every 5 s so items join the list shortly after.
 - **Simulator panel:** a floating, collapsible panel shown only when `MESSAGING_MODE=simulator`. "Skip hold time" runs the hold check with a zero hold. `DEV_HOLD_SECONDS` also shortens the scheduler interval.
 - **`parse_webhook()`:** takes the already-parsed form dict instead of the raw request, so messengers stay synchronous and easy to test.
 

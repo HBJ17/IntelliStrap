@@ -3,7 +3,7 @@
 SmartBand is a capacitive food-level strap for opaque kitchen jars (ESP32-C3 + LM358). This repository turns it into a service:
 
 - **Name and label each strap** on a dashboard (for example "Rice jar", containing Rice).
-- **Background logging.** Every state change, recalibration and baseline drift is recorded. A labelled jar that stays LOW for the hold time (20 min) is added to a **shopping list**.
+- **Background logging.** Every state change, recalibration and baseline drift is recorded. A labelled jar that stays LOW for the hold time (20 seconds) is added to a **shopping list**.
 - **Ordering over WhatsApp (Twilio).** When the list reaches ₹400, the owner gets it on WhatsApp with **Order / Not now** buttons. Tapping Order sends the same list to the shopkeeper, exactly once.
 
 ```
@@ -170,6 +170,6 @@ To build:
 |---|---|
 | No Wi-Fi password in firmware | `grep -ri password firmware/` shows only the setup-portal form and `SETUP_AP_PASSWORD` |
 | Reboot on a full jar | Power-cycle the strap. Serial shows `baseline … loaded from flash`, and no `recalibration` event is logged |
-| Jar refilled, strap LOW briefly | Refill the jar. The 5-count confirmation plus the 20-minute hold absorb it, and the dashboard history shows no list entry |
+| Jar refilled, strap LOW briefly | Refill the jar. The 5-count confirmation plus the 20-second hold absorb it, and the dashboard history shows no list entry |
 | Buzzer without Wi-Fi | Switch the router off and empty a jar. The strap beeps twice; its events are queued and sent on reconnect |
 | Strap silent | Unplug it. After 15 minutes the card shows **Offline**, and the owner gets one alert |
