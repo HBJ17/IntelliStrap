@@ -9,7 +9,6 @@ const GLOBAL_LABELS = {
   refill_reminder_days: "Not-refilled reminder (days)",
   drift_throttle_minutes: "Drift log throttle (min)",
   event_retention_days: "Keep heartbeats (days)",
-  fill_gap_full: "Gap shown as full",
 };
 
 const $ = (sel) => document.querySelector(sel);
@@ -102,13 +101,8 @@ function when(iso) {
 }
 
 function signal(rssi) {
-  if (rssi == null) return "–";
-  const q = rssi >= -60 ? "Strong" : rssi >= -70 ? "Good" : rssi >= -80 ? "Weak" : "Poor";
-  return `${rssi} dBm (${q})`;
-}
-
-function num(v, digits = 1) {
-  return v == null ? "–" : Number(v).toFixed(digits);
+  if (rssi == null) return "Wi-Fi –";
+  return `Wi-Fi ${rssi >= -60 ? "Strong" : rssi >= -70 ? "Good" : rssi >= -80 ? "Weak" : "Poor"}`;
 }
 
 function renderLabelOptions() {
@@ -238,7 +232,8 @@ function bannerFor(s, listed) {
 }
 
 function jarCardHTML(s, listedByStrap) {
-  const fill = s.status === "OFFLINE" || s.status === "UNKNOWN" ? Math.min(s.fill_pct ?? 0, 100) : (s.fill_pct ?? 0);
+  // The drawing only shows the state (full or low); no measured level is shown.
+  const fill = s.status === "OK" ? 85 : s.status === "LOW" ? 15 : 0;
   const listed = listedByStrap.get(s.device_id);
   const b = bannerFor(s, listed);
   const price = s.item ? (s.item.price_inr == null ? `<a class="warn-chip" href="#settings">${icon("alert")}enter price</a>` : `₹${s.item.price_inr}${s.item.pack_size ? ` / ${esc(s.item.pack_size)}` : ""}`) : "";
@@ -248,21 +243,18 @@ function jarCardHTML(s, listedByStrap) {
     <div class="jar-head">
       <div style="min-width:0">
         <div class="row"><span class="jar-id">#${esc(s.device_id)}</span>
-          <span class="status-chip st-chip-${esc(s.status)}">${esc(STATUS_TEXT[s.status] || s.status)}${s.fill_pct != null && s.status !== "UNKNOWN" ? ` ${s.fill_pct}%` : ""}</span></div>
+          <span class="status-chip st-chip-${esc(s.status)}">${esc(STATUS_TEXT[s.status] || s.status)}</span></div>
         <h3 class="card-title">${esc(s.display_name || s.device_id)}</h3>
         <p class="muted mono" style="margin:0">Contents: ${s.item ? esc(s.item.name) : "no label"} ${price ? `• ${price}` : ""}</p>
       </div>
       <div class="jar ${esc(s.status)}"><div class="fill" style="height:${fill}%"></div><div class="base"></div><div class="lid"></div></div>
     </div>
     <div class="readouts">
-      <div><span class="k">Fill level</span><span class="v">${s.fill_pct ?? "–"}${s.fill_pct != null ? "%" : ""}</span></div>
-      <div><span class="k">Gap / baseline</span><span class="v">${num(s.gap)} <small>/ ${num(s.baseline)}</small></span></div>
       <div class="wide"><span>Last report: ${esc(ago(s.last_seen))}</span><span>${s.pending_command ? `<b class="t-warn">${esc(s.pending_command)} queued</b>` : "No pending command"}</span></div>
     </div>
     <div class="banner ${b.cls}"><span>${icon(b.ic)}${esc(b.text)}</span><span class="muted">${esc(b.right)}</span></div>
     <div class="telemetry">
       <span>${icon("wifi")}${esc(signal(s.rssi))}</span>
-      <span>${icon("activity")}Heartbeat ~3 min</span>
     </div>
     ${open ? `
     <div class="edit-panel">
@@ -295,12 +287,9 @@ function streamHTML(events) {
     const ic = e.kind === "low" ? "down" : e.kind === "ok" ? "up" : "target";
     const cls = e.kind === "low" ? "low" : e.kind === "ok" ? "ok" : "";
     const color = e.kind === "low" ? "t-low" : e.kind === "ok" ? "t-ok" : "";
-    const detail = e.kind === "recalibration" ? `New baseline: ${num(e.baseline, 2)}`
-      : `Gap ${num(e.gap)} · baseline ${num(e.baseline)}`;
     return `
     <div class="log ${cls}">
       <div class="head"><span class="${color}">${icon(ic)}${esc(e.strap_name)}: ${esc(e.text)}</span><span class="muted">${esc(ago(e.ts))}</span></div>
-      <p>${esc(detail)}</p>
     </div>`;
   }).join("");
 }

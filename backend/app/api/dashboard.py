@@ -51,9 +51,6 @@ def item_out(item: Item | None) -> dict | None:
 
 
 def strap_out(strap: Strap, now: datetime, cfg: dict[str, int]) -> dict:
-    fill = None
-    if strap.gap is not None:
-        fill = max(0, min(100, round(strap.gap / cfg["fill_gap_full"] * 100)))
     return {
         "device_id": strap.device_id,
         "display_name": strap.display_name,
@@ -61,7 +58,6 @@ def strap_out(strap: Strap, now: datetime, cfg: dict[str, int]) -> dict:
         "status": rules.strap_status(strap, now, cfg["offline_minutes"]),
         "state": strap.state.value,
         "state_since": strap.state_since,
-        "fill_pct": fill,
         "gap": strap.gap,
         "baseline": strap.baseline,
         "rssi": strap.rssi,

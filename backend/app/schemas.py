@@ -119,7 +119,6 @@ class GlobalSettings(BaseModel):
     event_retention_days: int | None = Field(default=None, ge=1, le=3650)
     drift_throttle_minutes: int | None = Field(default=None, ge=1, le=24 * 60)
     refill_reminder_days: int | None = Field(default=None, ge=1, le=60)
-    fill_gap_full: int | None = Field(default=None, ge=1, le=100_000)
 
 
 class SettingsUpdate(BaseModel):

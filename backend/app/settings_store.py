@@ -11,8 +11,6 @@ DEFAULTS: dict[str, int] = {
     "event_retention_days": 30,
     "drift_throttle_minutes": 15,
     "refill_reminder_days": 4,
-    # Gap value that maps to a 100% fill bar on the dashboard (display only).
-    "fill_gap_full": 40,
 }
 
 

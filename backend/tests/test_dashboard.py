@@ -20,7 +20,7 @@ def test_list_straps_with_computed_status(auth_client, demo):
     straps = {s["display_name"]: s for s in auth_client.get("/api/straps").json()}
     assert straps["Rice jar"]["status"] == "OK"
     assert straps["Rice jar"]["item"]["name"] == "Rice"
-    assert straps["Rice jar"]["fill_pct"] == 88  # gap 35 of 40
+    assert "fill_pct" not in straps["Rice jar"]
 
 
 def test_r10_silent_strap_shows_offline_not_last_state(auth_client, demo, client):
