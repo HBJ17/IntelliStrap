@@ -2,7 +2,7 @@
 
 const POLL_MS = 3000;
 const GLOBAL_LABELS = {
-  hold_minutes: "LOW hold time (min)",
+  hold_seconds: "LOW hold time (sec)",
   reminder_hours: "Owner reminder (h)",
   expiry_days: "List expiry (days)",
   offline_minutes: "Offline after (min)",
@@ -177,7 +177,7 @@ function renderChrome() {
   badge.classList.toggle("hidden", n === 0);
   if (state.settings) {
     const g = state.settings.global;
-    const hold = state.settings.dev_hold_seconds ? `${state.settings.dev_hold_seconds}s (dev)` : `${g.hold_minutes} min`;
+    const hold = state.settings.dev_hold_seconds ? `${state.settings.dev_hold_seconds}s (dev)` : `${g.hold_seconds}s`;
     $("#side-timings").textContent = `LOW hold ${hold} · Offline after ${g.offline_minutes} min · Threshold ₹${state.settings.owner.list_threshold_inr}`;
   }
 }

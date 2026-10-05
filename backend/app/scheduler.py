@@ -116,9 +116,9 @@ def _safe(job):
 
 
 def start() -> BackgroundScheduler:
-    # With DEV_HOLD_SECONDS set (demos), check every few seconds instead of every minute.
+    # The LOW hold is measured in seconds, so check every few seconds.
     dev_seconds = get_settings().dev_hold_seconds
-    interval = 60 if dev_seconds is None else max(2, min(60, dev_seconds // 2 or 2))
+    interval = 5 if dev_seconds is None else max(2, min(5, dev_seconds // 2 or 2))
     scheduler = BackgroundScheduler(timezone="UTC")
     scheduler.add_job(_safe(run_frequent), "interval", seconds=interval, id="frequent", max_instances=1,
                       coalesce=True)

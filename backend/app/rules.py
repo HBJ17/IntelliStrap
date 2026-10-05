@@ -51,7 +51,7 @@ def hold_delta(db: Session) -> timedelta:
     dev_seconds = get_settings().dev_hold_seconds
     if dev_seconds is not None:
         return timedelta(seconds=dev_seconds)
-    return timedelta(minutes=settings_store.get_int(db, "hold_minutes"))
+    return timedelta(seconds=settings_store.get_int(db, "hold_seconds"))
 
 
 # --- contents labels ---------------------------------------------------------------

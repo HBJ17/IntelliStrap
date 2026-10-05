@@ -112,7 +112,7 @@ class ShopSettings(BaseModel):
 
 class GlobalSettings(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    hold_minutes: int | None = Field(default=None, ge=0, le=24 * 60)
+    hold_seconds: int | None = Field(default=None, ge=0, le=24 * 3600)
     reminder_hours: int | None = Field(default=None, ge=1, le=24 * 7)
     expiry_days: int | None = Field(default=None, ge=1, le=60)
     offline_minutes: int | None = Field(default=None, ge=1, le=24 * 60)

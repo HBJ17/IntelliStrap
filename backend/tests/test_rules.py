@@ -37,7 +37,7 @@ def wait_hold(strap_event, demo, minutes=21):
 
 def test_r2_nothing_added_during_hold(demo, strap_event, session):
     go_low(strap_event, demo["straps"]["Rice"])
-    clock.advance(minutes=19)
+    clock.advance(seconds=19)
     scheduler.run_frequent()
     assert rows(session) == []
 
@@ -45,7 +45,7 @@ def test_r2_nothing_added_during_hold(demo, strap_event, session):
 def test_r2_back_to_ok_within_hold_adds_nothing(demo, strap_event, session):
     rice = demo["straps"]["Rice"]
     go_low(strap_event, rice)
-    clock.advance(minutes=10)
+    clock.advance(seconds=10)
     go_ok(strap_event, rice)
     wait_hold(strap_event, demo, minutes=30)
     assert rows(session) == []
@@ -332,7 +332,7 @@ def test_format_items_inline():
     assert format_items_inline([row("Sugar", 2, 55)]) == "Sugar ×2 ₹110"
 
 
-def test_dev_hold_seconds_overrides_minutes(demo, session, monkeypatch):
+def test_dev_hold_seconds_overrides_setting(demo, session, monkeypatch):
     from app.config import get_settings
     monkeypatch.setenv("DEV_HOLD_SECONDS", "10")
     get_settings.cache_clear()

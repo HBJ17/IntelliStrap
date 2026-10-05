@@ -93,16 +93,16 @@ def test_history_timeline(auth_client, demo, client):
 
 def test_settings_roundtrip(auth_client, demo):
     s = auth_client.get("/api/settings").json()
-    assert s["owner"]["list_threshold_inr"] == 400 and s["global"]["hold_minutes"] == 20
+    assert s["owner"]["list_threshold_inr"] == 400 and s["global"]["hold_seconds"] == 20
     r = auth_client.put("/api/settings", json={
         "owner": {"whatsapp_number": "+919876543210", "list_threshold_inr": 500},
         "shop": {"opted_in": False},
-        "global": {"hold_minutes": 5}})
+        "global": {"hold_seconds": 5}})
     assert r.status_code == 200, r.text
     s = auth_client.get("/api/settings").json()
     assert s["owner"]["whatsapp_number"] == "+919876543210"
     assert s["owner"]["list_threshold_inr"] == 500
-    assert s["shop"]["opted_in"] is False and s["global"]["hold_minutes"] == 5
+    assert s["shop"]["opted_in"] is False and s["global"]["hold_seconds"] == 5
     assert auth_client.put("/api/settings", json={"owner": {"whatsapp_number": "98765"}}).status_code == 422
 
 

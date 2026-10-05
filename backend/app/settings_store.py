@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 from .models import AppSetting
 
 DEFAULTS: dict[str, int] = {
-    "hold_minutes": 20,
+    "hold_seconds": 20,
     "reminder_hours": 6,
     "expiry_days": 3,
     "offline_minutes": 15,
