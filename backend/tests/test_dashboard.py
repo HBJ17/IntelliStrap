@@ -212,3 +212,8 @@ def test_recent_events_stream(auth_client, demo, client):
         ("Rice jar", "ok"), ("Sago jar", "recalibration"), ("Rice jar", "low")]
     assert events[2]["gap"] == 8.0 and events[1]["baseline"] == 790.0
     assert len(auth_client.get("/api/events/recent?limit=1").json()) == 1
+
+
+def test_dashboard_files_are_revalidated(client):
+    for path in ("/", "/static/app.js"):
+        assert client.get(path).headers["cache-control"] == "no-cache"

@@ -13,7 +13,16 @@ from .middleware import HardeningMiddleware
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
 STATIC_DIR = BACKEND_DIR / "static"
+# Browsers must revalidate the dashboard files, or they keep running an old app.js after an update.
+NO_CACHE = {"Cache-Control": "no-cache"}
 log = logging.getLogger("app")
+
+
+class DashboardFiles(StaticFiles):
+    async def get_response(self, path, scope):
+        response = await super().get_response(path, scope)
+        response.headers.update(NO_CACHE)
+        return response
 
 
 def create_app(*, init_database: bool = True) -> FastAPI:
@@ -43,11 +52,11 @@ def create_app(*, init_database: bool = True) -> FastAPI:
     app.include_router(dashboard.router)
     app.include_router(sim.router)
     app.include_router(webhooks.router)
-    app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+    app.mount("/static", DashboardFiles(directory=STATIC_DIR), name="static")
 
     @app.get("/", include_in_schema=False)
     def index():
-        return FileResponse(STATIC_DIR / "index.html")
+        return FileResponse(STATIC_DIR / "index.html", headers=NO_CACHE)
 
     return app
 
