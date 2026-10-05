@@ -97,8 +97,17 @@ a { color: inherit; }
 .spacer { flex: 1; }
 
 /* --- icons ------------------------------------------------------------------- */
-.ic { display: inline-flex; width: 16px; height: 16px; flex: none; }
-.ic svg { width: 100%; height: 100%; }
+.material-symbols-rounded {
+  font-family: "Material Symbols Rounded";
+  font-weight: normal; font-style: normal; letter-spacing: normal; text-transform: none;
+  white-space: nowrap; word-wrap: normal; direction: ltr;
+  -webkit-font-feature-settings: "liga"; font-feature-settings: "liga";
+  font-variation-settings: "FILL" 1, "wght" 600, "GRAD" 0, "opsz" 24;
+}
+.ic {
+  display: inline-flex; align-items: center; justify-content: center; flex: none;
+  width: 16px; height: 16px; font-size: 16px; line-height: 1; overflow: hidden;
+}
 
 /* --- top bar ------------------------------------------------------------------ */
 .topbar {

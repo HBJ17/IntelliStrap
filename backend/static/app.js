@@ -18,33 +18,16 @@ const state = {
 };
 const pollers = [];  // run after each view refresh
 
-// --- icons (inline SVG, so the page works offline) ----------------------------------
-const ICON_PATHS = {
-  sensors: '<circle cx="12" cy="12" r="2"/><path d="M16.24 7.76a6 6 0 0 1 0 8.49M7.76 16.24a6 6 0 0 1 0-8.49M19.07 4.93a10 10 0 0 1 0 14.14M4.93 19.07a10 10 0 0 1 0-14.14"/>',
-  grid: '<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>',
-  cart: '<circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>',
-  plus: '<path d="M12 5v14M5 12h14"/>',
-  history: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
-  settings: '<path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/>',
-  logout: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>',
-  wifi: '<path d="M5 12.55a11 11 0 0 1 14.08 0M1.42 9a16 16 0 0 1 21.16 0M8.53 16.11a6 6 0 0 1 6.95 0M12 20h.01"/>',
-  target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>',
-  trash: '<path d="M3 6h18M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6M10 11v6M14 11v6M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>',
-  edit: '<path d="M12 20h9M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>',
-  message: '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
-  send: '<path d="M22 2 11 13M22 2l-7 20-4-9-9-4Z"/>',
-  alert: '<path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4M12 17h.01"/>',
-  check: '<path d="M20 6 9 17l-5-5"/>',
-  clock: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
-  down: '<path d="M12 5v14M19 12l-7 7-7-7"/>',
-  up: '<path d="M12 19V5M5 12l7-7 7 7"/>',
-  box: '<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.27 6.96 12 12.01l8.73-5.05M12 22.08V12"/>',
-  chevron: '<path d="m18 15-6-6-6 6"/>',
-  activity: '<path d="M22 12h-4l-3 9L9 3l-3 9H2"/>',
+// --- icons (Material Symbols Rounded, same set as the design) ----------------------
+const ICON_NAMES = {
+  sensors: "sensors", grid: "kitchen", cart: "shopping_basket", plus: "add_circle", history: "history",
+  settings: "settings", logout: "logout", wifi: "wifi", target: "tune", trash: "delete", edit: "edit",
+  message: "chat", send: "send", alert: "warning", check: "check_circle", clock: "schedule",
+  down: "arrow_downward", up: "arrow_upward", box: "inventory_2", chevron: "expand_less", activity: "monitor_heart",
 };
 
 function icon(name) {
-  return `<span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON_PATHS[name] || ""}</svg></span>`;
+  return `<span class="ic material-symbols-rounded" aria-hidden="true">${ICON_NAMES[name] || ""}</span>`;
 }
 
 function hydrateIcons(root = document) {
