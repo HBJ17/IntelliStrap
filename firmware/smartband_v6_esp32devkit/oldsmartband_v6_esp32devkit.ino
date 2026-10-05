@@ -1,3 +1,4 @@
+// Board: classic ESP32 DevKit (FQBN esp32:esp32:esp32). Fill in the 3 placeholders below before flashing.
 // SmartBand v6 - v4 sketch (sensor logic UNCHANGED) + reporting to the IntelliStrap backend.
 // Everything marked 'added in v6' is new; the rest is the v4 file as it was.
 // SmartBand v4 - v3 sensor logic (UNCHANGED) + self-hosted WiFi dashboard
@@ -11,12 +12,12 @@
 #include <HTTPClient.h>   // added in v6
 
 // ================== FILL THESE IN ==================
-const char* WIFI_SSID = "OnePlus Nord CE4";
-const char* WIFI_PASS = "12345678";
+const char* WIFI_SSID = "YOUR_WIFI_NAME";
+const char* WIFI_PASS = "YOUR_WIFI_PASSWORD";
 // ===================================================
 
 // ============ BACKEND (added in v6) ============
-const char* BACKEND_URL      = "http://10.224.219.68:8000";  // PC running uvicorn, same Wi-Fi
+const char* BACKEND_URL      = "http://YOUR_PC_IP:8000";  // PC running uvicorn, same Wi-Fi
 const char* PROVISION_SECRET = "change-me";                 // must equal DEVICE_PROVISION_SECRET in .env
 // ===============================================
 
